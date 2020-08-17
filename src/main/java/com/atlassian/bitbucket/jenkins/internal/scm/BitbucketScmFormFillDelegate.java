@@ -9,6 +9,7 @@ import com.atlassian.bitbucket.jenkins.internal.credentials.CredentialUtils;
 import com.atlassian.bitbucket.jenkins.internal.credentials.JenkinsToBitbucketCredentials;
 import com.atlassian.bitbucket.jenkins.internal.model.BitbucketProject;
 import com.atlassian.bitbucket.jenkins.internal.model.BitbucketRepository;
+import com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey;
 import com.atlassian.bitbucket.jenkins.internal.provider.JenkinsProvider;
 import com.cloudbees.plugins.credentials.Credentials;
 import com.cloudbees.plugins.credentials.CredentialsMatchers;
@@ -31,6 +32,7 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.logging.Logger;
 
 import static com.atlassian.bitbucket.jenkins.internal.client.BitbucketSearchHelper.findProjects;
@@ -91,6 +93,20 @@ public class BitbucketScmFormFillDelegate implements BitbucketScmFormFill {
     }
 
     @Override
+    public ListBoxModel doFillSshCredentialsIdItems(@Nullable Item context, String baseUrl, String sshCredentialsId) {
+        checkPermissions(context);
+
+        return new StandardListBoxModel()
+                .includeEmptyValue()
+                .includeMatchingAs(
+                        ACL.SYSTEM,
+                        jenkinsProvider.get(),
+                        BasicSSHUserPrivateKey.class,
+                        URIRequirementBuilder.fromUri(baseUrl).build(),
+                        CredentialsMatchers.always());
+    }
+
+    @Override
     public HttpResponse doFillProjectNameItems(@Nullable Item context, String serverId, String credentialsId,
                                                String projectName) {
         checkPermissions(context);
@@ -102,8 +118,8 @@ public class BitbucketScmFormFillDelegate implements BitbucketScmFormFill {
             return errorWithoutStack(HTTP_BAD_REQUEST, "The project name must be at least 2 characters long");
         }
 
-        Credentials providedCredentials = CredentialUtils.getCredentials(credentialsId);
-        if (!isBlank(credentialsId) && providedCredentials == null) {
+        Optional<Credentials> providedCredentials = CredentialUtils.getCredentials(credentialsId);
+        if (!isBlank(credentialsId) && !providedCredentials.isPresent()) {
             return errorWithoutStack(HTTP_BAD_REQUEST, "No credentials exist for the provided credentialsId");
         }
 
@@ -112,7 +128,7 @@ public class BitbucketScmFormFillDelegate implements BitbucketScmFormFill {
                     try {
                         BitbucketCredentials credentials =
                                 jenkinsToBitbucketCredentials.toBitbucketCredentials(
-                                        providedCredentials,
+                                        providedCredentials.orElse(null),
                                         serverConf.getGlobalCredentialsProvider("BitbucketSCM fill project name"));
                         Collection<BitbucketProject> projects = findProjects(projectName,
                                 bitbucketClientFactoryProvider.getClient(serverConf.getBaseUrl(), credentials));
@@ -140,8 +156,8 @@ public class BitbucketScmFormFillDelegate implements BitbucketScmFormFill {
             return errorWithoutStack(HTTP_BAD_REQUEST, "The projectName must be present");
         }
 
-        Credentials providedCredentials = CredentialUtils.getCredentials(credentialsId);
-        if (!isBlank(credentialsId) && providedCredentials == null) {
+        Optional<Credentials> providedCredentials = CredentialUtils.getCredentials(credentialsId);
+        if (!isBlank(credentialsId) && !providedCredentials.isPresent()) {
             return errorWithoutStack(HTTP_BAD_REQUEST, "No credentials exist for the provided credentialsId");
         }
 
@@ -149,7 +165,7 @@ public class BitbucketScmFormFillDelegate implements BitbucketScmFormFill {
                 .map(serverConf -> {
                     BitbucketCredentials credentials =
                             jenkinsToBitbucketCredentials.toBitbucketCredentials(
-                                    providedCredentials,
+                                    providedCredentials.orElse(null),
                                     serverConf.getGlobalCredentialsProvider("BitbucketSCM fill repository"));
                     try {
                         Collection<BitbucketRepository> repositories = findRepositories(repositoryName, projectName,

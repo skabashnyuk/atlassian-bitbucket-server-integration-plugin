@@ -20,6 +20,8 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
+import java.util.Optional;
+
 import static com.atlassian.bitbucket.jenkins.internal.client.BitbucketSearchHelper.getProjectByNameOrKey;
 import static com.atlassian.bitbucket.jenkins.internal.client.BitbucketSearchHelper.getRepositoryByNameOrSlug;
 import static hudson.util.FormValidation.Kind.ERROR;
@@ -54,11 +56,16 @@ public class BitbucketScmFormValidationDelegate implements BitbucketScmFormValid
     @Override
     public FormValidation doCheckCredentialsId(@Nullable Item context, String credentialsId) {
         checkPermission(context);
-        Credentials providedCredentials = CredentialUtils.getCredentials(credentialsId);
-        if (!isBlank(credentialsId) && providedCredentials == null) {
+        Optional<Credentials> providedCredentials = CredentialUtils.getCredentials(credentialsId);
+        if (!isBlank(credentialsId) && !providedCredentials.isPresent()) {
             return FormValidation.error("No credentials exist for the provided credentialsId");
         }
         return FormValidation.ok();
+    }
+
+    @Override
+    public FormValidation doCheckSshCredentialsId(@Nullable Item context, String sshCredentialsId) {
+        return doCheckCredentialsId(context, sshCredentialsId);
     }
 
     @Override
@@ -67,8 +74,8 @@ public class BitbucketScmFormValidationDelegate implements BitbucketScmFormValid
         if (isBlank(projectName)) {
             return FormValidation.error("Project name is required");
         }
-        Credentials providedCredentials = CredentialUtils.getCredentials(credentialsId);
-        if (!isBlank(credentialsId) && providedCredentials == null) {
+        Optional<Credentials> providedCredentials = CredentialUtils.getCredentials(credentialsId);
+        if (!isBlank(credentialsId) && !providedCredentials.isPresent()) {
             return FormValidation.ok(); // There will be an error in the credentials field
         }
 
@@ -79,7 +86,7 @@ public class BitbucketScmFormValidationDelegate implements BitbucketScmFormValid
                                 .getClient(
                                         serverConf.getBaseUrl(),
                                         jenkinsToBitbucketCredentials.toBitbucketCredentials(
-                                                providedCredentials,
+                                                providedCredentials.orElse(null),
                                                 serverConf.getGlobalCredentialsProvider("Check Project Name")));
                         BitbucketProject project = getProjectByNameOrKey(projectName, clientFactory);
                         return FormValidation.ok("Using '" + project.getName() + "' at " + project.getSelfLink());
@@ -101,8 +108,8 @@ public class BitbucketScmFormValidationDelegate implements BitbucketScmFormValid
         if (isBlank(projectName)) {
             return FormValidation.ok(); // There will be an error on the projectName field
         }
-        Credentials providedCredentials = CredentialUtils.getCredentials(credentialsId);
-        if (!isBlank(credentialsId) && providedCredentials == null) {
+        Optional<Credentials> providedCredentials = CredentialUtils.getCredentials(credentialsId);
+        if (!isBlank(credentialsId) && !providedCredentials.isPresent()) {
             return FormValidation.ok(); // There will be an error in the credentials field
         }
         if (isEmpty(repositoryName)) {
@@ -116,7 +123,7 @@ public class BitbucketScmFormValidationDelegate implements BitbucketScmFormValid
                                 .getClient(
                                         serverConf.getBaseUrl(),
                                         jenkinsToBitbucketCredentials.toBitbucketCredentials(
-                                                providedCredentials,
+                                                providedCredentials.orElse(null),
                                                 serverConf.getGlobalCredentialsProvider("Check Repository Name")));
                         BitbucketRepository repository =
                                 getRepositoryByNameOrSlug(projectName, repositoryName, clientFactory);
@@ -197,8 +204,8 @@ public class BitbucketScmFormValidationDelegate implements BitbucketScmFormValid
         if (isBlank(serverId) || isBlank(projectName) || isBlank(repositoryName)) {
             return FormValidation.ok(); // Validation error would have been in one of the other fields
         }
-        Credentials providedCredentials = CredentialUtils.getCredentials(credentialsId);
-        if (!isBlank(credentialsId) && providedCredentials == null) {
+        Optional<Credentials> providedCredentials = CredentialUtils.getCredentials(credentialsId);
+        if (!isBlank(credentialsId) && !providedCredentials.isPresent()) {
             return FormValidation.ok(); // There will be an error in the credentials field
         }
 
