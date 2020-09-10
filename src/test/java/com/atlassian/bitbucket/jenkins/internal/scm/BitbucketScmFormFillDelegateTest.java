@@ -93,9 +93,9 @@ public class BitbucketScmFormFillDelegateTest {
         when(serverConfigurationValid.getBaseUrl()).thenReturn(SERVER_BASE_URL_VALID);
         when(serverConfigurationValid.getGlobalCredentialsProvider(anyString())).thenReturn(globalCredentialsProvider);
         when(serverConfigurationValid.validate()).thenReturn(FormValidation.ok());
-        when(jenkinsToBitbucketCredentials.toBitbucketCredentials(nullable(String.class), any(GlobalCredentialsProvider.class)))
+        when(jenkinsToBitbucketCredentials.toBitbucketCredentials(nullable(String.class)))
                 .thenReturn(mock(BitbucketCredentials.class));
-        when(jenkinsToBitbucketCredentials.toBitbucketCredentials(nullable(Credentials.class), any(GlobalCredentialsProvider.class)))
+        when(jenkinsToBitbucketCredentials.toBitbucketCredentials(nullable(Credentials.class)))
                 .thenReturn(mock(BitbucketCredentials.class));
         when(pluginConfiguration.getServerById(SERVER_ID_VALID)).thenReturn(of(serverConfigurationValid));
         doReturn(jenkins).when(jenkinsProvider).get();
@@ -161,8 +161,10 @@ public class BitbucketScmFormFillDelegateTest {
         when(bitbucketClientFactory.getSearchClient(searchTerm)).thenReturn(badSearchClient);
         when(badSearchClient.findProjects()).thenThrow(new BitbucketClientException("Bitbucket had an exception",
                 400, "Some error from Bitbucket"));
-        HttpResponses.HttpResponseException response = (HttpResponses.HttpResponseException) delegate.doFillProjectNameItems(parent, SERVER_ID_VALID, null, searchTerm);
-        verifyErrorRequest(response, 500, "An error occurred in Bitbucket: Bitbucket had an exception");
+        HttpResponse response =
+                delegate.doFillProjectNameItems(parent, SERVER_ID_VALID, bbJenkins.getUsernamePasswordCredentialsId(), searchTerm);
+        verifyErrorRequest((HttpResponses.HttpResponseException) response, 500,
+                "An error occurred in Bitbucket: Bitbucket had an exception");
     }
 
     @Test
@@ -201,8 +203,10 @@ public class BitbucketScmFormFillDelegateTest {
 
     @Test
     public void testDoFillProjectNameItemsProjectNameBlank() throws Exception {
-        HttpResponses.HttpResponseException response = (HttpResponses.HttpResponseException) delegate.doFillProjectNameItems(parent, SERVER_ID_VALID, null, "");
-        verifyBadRequest(response, "The project name must be at least 2 characters long");
+        HttpResponse response =
+                delegate.doFillProjectNameItems(parent, SERVER_ID_VALID, bbJenkins.getTokenCredentialsId(), "");
+        verifyBadRequest((HttpResponses.HttpResponseException) response,
+                "The project name must be at least 2 characters long");
     }
 
     @Test
@@ -231,8 +235,9 @@ public class BitbucketScmFormFillDelegateTest {
 
     @Test
     public void testDoFillProjectNameItemsServerNonexistent() throws Exception {
-        HttpResponses.HttpResponseException response = (HttpResponses.HttpResponseException) delegate.doFillProjectNameItems(parent, "non-existent", null, "test");
-        verifyBadRequest(response, "The provided Bitbucket Server serverId does not exist");
+        HttpResponse response = delegate.doFillProjectNameItems(parent, "non-existent", bbJenkins.getUsernamePasswordCredentialsId(), "test");
+        verifyBadRequest((HttpResponses.HttpResponseException) response,
+                "The provided Bitbucket Server serverId does not exist");
     }
 
     @Test(expected = AccessDeniedException.class)
@@ -248,8 +253,10 @@ public class BitbucketScmFormFillDelegateTest {
         BitbucketSearchClient client = mock(BitbucketSearchClient.class);
         when(client.findRepositories(searchTerm)).thenThrow(new BitbucketClientException("Bitbucket had an exception", 400, "Some error from Bitbucket"));
         when(bitbucketClientFactory.getSearchClient(myProject)).thenReturn(client);
-        HttpResponses.HttpResponseException response = (HttpResponses.HttpResponseException) delegate.doFillRepositoryNameItems(parent, SERVER_ID_VALID, null, myProject, searchTerm);
-        verifyErrorRequest(response, 500, "An error occurred in Bitbucket: Bitbucket had an exception");
+        HttpResponse response =
+                delegate.doFillRepositoryNameItems(parent, SERVER_ID_VALID, bbJenkins.getUsernamePasswordCredentialsId(), myProject, searchTerm);
+        verifyErrorRequest((HttpResponses.HttpResponseException) response, 500,
+                "An error occurred in Bitbucket: Bitbucket had an exception");
     }
 
     @Test
@@ -260,7 +267,7 @@ public class BitbucketScmFormFillDelegateTest {
     }
 
     @Test
-    public void testDoFillRepositoryNameItemsCredentialsIdNull() {
+    public void testDoFillRepositoryNameItemsCredentialsIdNull() throws Exception {
         String searchTerm = "test";
         String projectName = "myProject";
         HttpResponse response = delegate.doFillRepositoryNameItems(parent, SERVER_ID_VALID, null, projectName, searchTerm);
@@ -334,7 +341,8 @@ public class BitbucketScmFormFillDelegateTest {
     @Test
     public void testDoFillRepositoryNameItemsServerNonexistent() throws Exception {
         HttpResponses.HttpResponseException response = (HttpResponses.HttpResponseException)
-                delegate.doFillRepositoryNameItems(parent, "non-existent", null, "myProject", "test");
+                delegate.doFillRepositoryNameItems(parent, "non-existent", bbJenkins.getUsernamePasswordCredentialsId(),
+                        "myProject", "test");
         verifyBadRequest(response, "The provided Bitbucket Server serverId does not exist");
     }
 
