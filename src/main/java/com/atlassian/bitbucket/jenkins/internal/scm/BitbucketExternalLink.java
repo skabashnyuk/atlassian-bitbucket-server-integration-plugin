@@ -2,7 +2,6 @@ package com.atlassian.bitbucket.jenkins.internal.scm;
 
 import hudson.model.Action;
 import hudson.model.Item;
-import hudson.model.Project;
 import jenkins.model.Jenkins;
 import org.apache.commons.jelly.JellyContext;
 import org.jenkins.ui.icon.Icon;
@@ -15,7 +14,7 @@ import javax.annotation.CheckForNull;
 
 public class BitbucketExternalLink implements Action, IconSpec {
 
-    private final Project project;
+    private final Item owner;
     private final String displayName;
     private final String url;
     private final String iconName;
@@ -29,17 +28,17 @@ public class BitbucketExternalLink implements Action, IconSpec {
                         IconType.PLUGIN));
     }
 
-    private BitbucketExternalLink(Project project, String displayName, String url, String iconClassName) {
-        this.project = project;
+    private BitbucketExternalLink(Item owner, String displayName, String url, String iconClassName) {
+        this.owner = owner;
         this.displayName = displayName;
         this.url = url;
         this.iconName = iconClassName;
     }
 
-    public static BitbucketExternalLink createDashboardLink(String url, Project project) {
+    public static BitbucketExternalLink createDashboardLink(String url, Item owner) {
         String displayName = "Go to Bitbucket";
         String iconName = "icon-bitbucket-logo";
-        return new BitbucketExternalLink(project, displayName, url, iconName);
+        return new BitbucketExternalLink(owner, displayName, url, iconName);
     }
 
     @Override
@@ -50,7 +49,7 @@ public class BitbucketExternalLink implements Action, IconSpec {
     @CheckForNull
     @Override
     public String getIconFileName() {
-        if (!project.hasPermission(Item.CONFIGURE)) {
+        if (!owner.hasPermission(Item.CONFIGURE)) {
             return null;
         }
 
