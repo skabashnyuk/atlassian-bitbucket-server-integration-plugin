@@ -56,8 +56,18 @@ public class BitbucketClientFactoryImpl implements BitbucketClientFactory {
     }
 
     @Override
+    public BitbucketFilesClient getFilesClient(String projectKey, String repoSlug) {
+        return new BitbucketFilesClientImpl(bitbucketRequestExecutor, projectKey, repoSlug);
+    }
+
+    @Override
     public BitbucketMirrorClient getMirroredRepositoriesClient(int repositoryId) {
         return new BitbucketMirrorClientImpl(bitbucketRequestExecutor, repositoryId);
+    }
+
+    @Override
+    public BitbucketRepositoryListClient getRepositoryListClient(String projectKey) {
+        return new BitbucketRepositoryListClientImpl(bitbucketRequestExecutor, projectKey);
     }
 
     @Override

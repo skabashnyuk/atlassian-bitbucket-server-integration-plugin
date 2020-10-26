@@ -41,7 +41,7 @@ public class JenkinsToBitbucketCredentialsImpl implements JenkinsToBitbucketCred
         return () -> "Bearer " + bearerToken;
     }
 
-    private static BitbucketCredentials getBasicCredentials(String username, String password) {
+    public static BitbucketCredentials getBasicCredentials(String username, String password) {
         String authorization = username + ':' + password;
         return () -> "Basic " + Base64.getEncoder().encodeToString(authorization.getBytes(Charsets.UTF_8));
     }

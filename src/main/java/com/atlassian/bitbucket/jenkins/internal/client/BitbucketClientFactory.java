@@ -35,12 +35,28 @@ public interface BitbucketClientFactory {
                                                     BitbucketCICapabilities ciCapabilities);
 
     /**
+     *
+     * @param projectKey
+     * @param repoSlug
+     * @return
+     */
+    BitbucketFilesClient getFilesClient(String projectKey, String repoSlug);
+
+    /**
      * Construct a client that can retrieve the list of mirrored repositories for a given {@code repoId} from Bitbucket.
      *
      * @param repositoryId the repositoryId
      * @return a client that is ready to use
      */
     BitbucketMirrorClient getMirroredRepositoriesClient(int repositoryId);
+
+    /**
+     * Returns a repository list client
+     *
+     * @param projectKey the project to scan for repos
+     * @return a client that is ready to use
+     */
+    BitbucketRepositoryListClient getRepositoryListClient(String projectKey);
 
     /**
      * Return a project client.
