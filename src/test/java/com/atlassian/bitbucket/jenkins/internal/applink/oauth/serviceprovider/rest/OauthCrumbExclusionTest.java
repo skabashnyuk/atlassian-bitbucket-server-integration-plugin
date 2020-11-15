@@ -21,13 +21,13 @@ import static org.mockito.Mockito.*;
 @RunWith(MockitoJUnitRunner.class)
 public class OauthCrumbExclusionTest {
 
-    @Spy
-    private FilterChain chain;
-    private OauthCrumbExclusion crumbExclusion;
     @Mock
     private HttpServletRequest request;
     @Spy
+    private FilterChain chain;
+    @Spy
     private HttpServletResponse response;
+    private OauthCrumbExclusion crumbExclusion;
 
     @Before
     public void setup() {
@@ -35,7 +35,7 @@ public class OauthCrumbExclusionTest {
     }
 
     @Test
-    public void testShouldBlockOtherEndpoints() throws IOException, ServletException {
+    public void testShouldContinueFilterOtherEndpoints() throws IOException, ServletException {
         when(request.getPathInfo()).thenReturn("/jenkins-endpoint");
 
         assertFalse(crumbExclusion.process(request, response, chain));
