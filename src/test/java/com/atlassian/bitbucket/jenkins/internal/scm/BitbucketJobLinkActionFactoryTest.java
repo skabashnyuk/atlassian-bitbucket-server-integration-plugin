@@ -75,12 +75,8 @@ public class BitbucketJobLinkActionFactoryTest {
         when(multibranchProject.getSCMSources()).thenReturn(Arrays.asList(mockSCMSource));
         when(bitbucketRepository.getServerId()).thenReturn(SERVER_ID);
         when(bitbucketRepository.getCredentialsId()).thenReturn(CREDENTIALS_ID);
-        when(bitbucketRepository.getProjectName()).thenReturn(PROJECT_NAME);
-        when(bitbucketRepository.getRepositoryName()).thenReturn(REPOSITORY_NAME);
 
         when(pluginConfiguration.getServerById(SERVER_ID)).thenReturn(Optional.of(configuration));
-        when(formValidationDelegate.doCheckProjectName(any(), eq(SERVER_ID), eq(CREDENTIALS_ID), eq(PROJECT_NAME))).thenReturn(FormValidation.ok());
-        when(formValidationDelegate.doCheckRepositoryName(any(), eq(SERVER_ID), eq(CREDENTIALS_ID), eq(PROJECT_NAME), eq(REPOSITORY_NAME))).thenReturn(FormValidation.ok());
         when(configuration.getBaseUrl()).thenReturn(BASE_URL);
         when(configuration.validate()).thenReturn(FormValidation.ok());
 
@@ -135,24 +131,6 @@ public class BitbucketJobLinkActionFactoryTest {
     public void testCreateNotBitbucketSCMWorkflow() {
         workflowJob.setDefinition(new CpsScmFlowDefinition(mock(SCM.class), "Jenkinsfile"));
         Collection<? extends Action> actions = actionFactory.createFor(workflowJob);
-
-        assertThat(actions.size(), equalTo(0));
-    }
-
-    @Test
-    public void testCreateProjectNameInvalid() {
-        when(formValidationDelegate.doCheckProjectName(any(), eq(SERVER_ID), eq(CREDENTIALS_ID), eq(PROJECT_NAME)))
-                .thenReturn(FormValidation.error("Bad project name"));
-        Collection<? extends Action> actions = actionFactory.createFor(freeStyleProject);
-
-        assertThat(actions.size(), equalTo(0));
-    }
-
-    @Test
-    public void testCreateRepoNameInvalid() {
-        when(formValidationDelegate.doCheckRepositoryName(any(), eq(SERVER_ID), eq(CREDENTIALS_ID), eq(PROJECT_NAME), eq(REPOSITORY_NAME)))
-                .thenReturn(FormValidation.error("Bad repository name"));
-        Collection<? extends Action> actions = actionFactory.createFor(freeStyleProject);
 
         assertThat(actions.size(), equalTo(0));
     }
