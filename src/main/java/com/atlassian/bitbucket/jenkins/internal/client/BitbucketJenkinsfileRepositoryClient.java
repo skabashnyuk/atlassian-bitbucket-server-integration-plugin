@@ -6,5 +6,5 @@ import java.util.List;
 
 public interface BitbucketJenkinsfileRepositoryClient {
 
-    List<BitbucketRepository> getRepositoriesMatchingRootFile();
+    List<BitbucketRepository> getRepositoriesWithJenkinsfile();
 }
