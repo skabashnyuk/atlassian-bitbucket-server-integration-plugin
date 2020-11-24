@@ -66,8 +66,8 @@ public class BitbucketClientFactoryImpl implements BitbucketClientFactory {
     }
 
     @Override
-    public BitbucketRepositoryListClient getRepositoryListClient(String projectKey) {
-        return new BitbucketRepositoryListClientImpl(bitbucketRequestExecutor, projectKey);
+    public BitbucketJenkinsfileRepositoryClient getJenkinsfileRepositoryClient(String projectKey) {
+        return new BitbucketJenkinsfileRepositoryClientImpl(bitbucketRequestExecutor, projectKey);
     }
 
     @Override

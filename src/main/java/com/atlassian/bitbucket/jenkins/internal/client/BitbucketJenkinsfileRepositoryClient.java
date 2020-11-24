@@ -4,7 +4,7 @@ import com.atlassian.bitbucket.jenkins.internal.model.BitbucketRepository;
 
 import java.util.List;
 
-public interface BitbucketRepositoryListClient {
+public interface BitbucketJenkinsfileRepositoryClient {
 
-    List<BitbucketRepository> getRepositoriesForProject();
+    List<BitbucketRepository> getRepositoriesMatchingRootFile();
 }

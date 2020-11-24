@@ -56,7 +56,8 @@ public interface BitbucketClientFactory {
      * @param projectKey the project to scan for repos
      * @return a client that is ready to use
      */
-    BitbucketRepositoryListClient getRepositoryListClient(String projectKey);
+    //BitbucketJenkinsfileRepositoryClient getJenkinsfileRepositoryClient(BitbucketProject project);
+    BitbucketJenkinsfileRepositoryClient getJenkinsfileRepositoryClient(String projectKey);
 
     /**
      * Return a project client.

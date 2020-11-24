@@ -34,13 +34,13 @@ public class BitbucketPlanScannerFolder extends ComputedFolder<WorkflowMultiBran
         try {
             listener.getLogger().println("Starting branch scan... %n");
 
-            // Get all repos
+            // Get all repos with a Jenkinsfile in the root
             listener.getLogger().println("Getting all repos from attached Bitbucket...");
             List<BitbucketRepository> repositories = getBitbucketRepos(planScannerHelper);
 
             // Filter out to Jenkinsfile
-            listener.getLogger().println("Finding repos that has a Jenkinsfile...");
-            repositories = filterReposWithoutJenkinsfile(repositories, planScannerHelper);
+//            listener.getLogger().println("Finding repos that has a Jenkinsfile...");
+//            repositories = filterReposWithoutJenkinsfile(repositories, planScannerHelper);
 
             // Creating/deleting projects
             listener.getLogger().println("Creating/deleting projects (if there are any to create/delete)...");

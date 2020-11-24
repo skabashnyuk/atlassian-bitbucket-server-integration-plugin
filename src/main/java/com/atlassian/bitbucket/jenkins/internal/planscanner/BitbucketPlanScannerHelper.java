@@ -25,8 +25,8 @@ public class BitbucketPlanScannerHelper {
     }
 
     public List<BitbucketRepository> getRepositories() {
-        return clientFactory.getRepositoryListClient(projectKey)
-                .getRepositoriesForProject();
+        return clientFactory.getJenkinsfileRepositoryClient(projectKey)
+                .getRepositoriesMatchingRootFile();
     }
 
     public boolean repositoryHasJenkinsfile(String repositorySlug) {
