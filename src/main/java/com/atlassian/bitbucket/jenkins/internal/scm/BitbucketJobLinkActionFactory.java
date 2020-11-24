@@ -45,7 +45,6 @@ public class BitbucketJobLinkActionFactory extends TransientActionFactory<Job> {
         }
         BitbucketSCMRepository bitbucketRepository = maybeRepository.get();
         String serverId = Objects.toString(bitbucketRepository.getServerId(), "");
-        String credentialsId = Objects.toString(bitbucketRepository.getCredentialsId(), "");
 
         Optional<BitbucketServerConfiguration> maybeConfig = bitbucketPluginConfiguration.getServerById(serverId);
         FormValidation configValid = maybeConfig.map(BitbucketServerConfiguration::validate)

@@ -30,9 +30,6 @@ import static org.mockito.Mockito.*;
 public class BitbucketJobLinkActionFactoryTest {
 
     private static final String SERVER_ID = "Test-Server-ID";
-    private static final String CREDENTIALS_ID = "Test-Credentials-ID";
-    private static final String PROJECT_NAME = "Test-Project-Name";
-    private static final String REPOSITORY_NAME = "Test-Repository-Name";
     private static final String BASE_URL = "http://localhost:8080/bitbucket";
 
     private BitbucketJobLinkActionFactory actionFactory;
@@ -74,7 +71,6 @@ public class BitbucketJobLinkActionFactoryTest {
         when(freeStyleProject.getScm()).thenReturn(scm);
         when(multibranchProject.getSCMSources()).thenReturn(Arrays.asList(mockSCMSource));
         when(bitbucketRepository.getServerId()).thenReturn(SERVER_ID);
-        when(bitbucketRepository.getCredentialsId()).thenReturn(CREDENTIALS_ID);
 
         when(pluginConfiguration.getServerById(SERVER_ID)).thenReturn(Optional.of(configuration));
         when(configuration.getBaseUrl()).thenReturn(BASE_URL);
