@@ -110,7 +110,7 @@ After a moment, your Jenkins instance will appear in the list of linked applicat
 
 ---
 
-## Use the plugin 
+## Use the plugin properly
 
 ### Select a Bitbucket Server instance when creating a Freestyle Job
 
