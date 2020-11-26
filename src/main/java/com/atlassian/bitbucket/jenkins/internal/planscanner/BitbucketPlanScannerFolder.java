@@ -8,7 +8,9 @@ import com.cloudbees.hudson.plugins.folder.computed.ChildObserver;
 import com.cloudbees.hudson.plugins.folder.computed.ComputedFolder;
 import hudson.Extension;
 import hudson.model.*;
+import jenkins.model.Jenkins;
 import org.jenkinsci.plugins.workflow.multibranch.WorkflowMultiBranchProject;
+import org.kohsuke.stapler.DataBoundConstructor;
 
 import javax.inject.Inject;
 import java.io.IOException;
@@ -20,9 +22,10 @@ public class BitbucketPlanScannerFolder extends ComputedFolder<WorkflowMultiBran
     private static final String TEST_PROJECT_KEY = "PROJECT_1";
     private static final String TEST_BASE_URL = "http://localhost:7990/bitbucket";
 
-    public BitbucketPlanScannerFolder(ItemGroup parent, String name) {
+    @DataBoundConstructor
+    public BitbucketPlanScannerFolder(
+            ItemGroup parent, String name) {
         super(parent, name);
-
     }
 
     @Override
@@ -86,6 +89,10 @@ public class BitbucketPlanScannerFolder extends ComputedFolder<WorkflowMultiBran
 
     }
 
+    public Descriptor getScmTemplateDescriptor() {
+        return Jenkins.get().getDescriptorOrDie(BitbucketSCMSourceTemplate.class);
+    }
+
     private boolean repoEqual(BitbucketRepository a, BitbucketRepository b) {
         return a.getSlug().equals(b.getSlug());
     }
@@ -115,7 +122,7 @@ public class BitbucketPlanScannerFolder extends ComputedFolder<WorkflowMultiBran
 
         @Override
         public TopLevelItem newInstance(ItemGroup parent, String name) {
-            return new BitbucketPlanScannerFolder(parent, name);
+            return new WorkflowMultiBranchProject(parent, name);
         }
 
         BitbucketPlanScannerHelper getPlanScannerHelper(String baseUrl, String credentialsId, String projectName) {

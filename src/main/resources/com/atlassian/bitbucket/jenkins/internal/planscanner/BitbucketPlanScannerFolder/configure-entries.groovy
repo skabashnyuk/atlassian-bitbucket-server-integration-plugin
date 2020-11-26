@@ -1,0 +1,32 @@
+package com.atlassian.bitbucket.jenkins.internal.scm.BitbucketSCMSource
+
+def f = namespace(lib.FormTagLib)
+def c = namespace(lib.CredentialsTagLib)
+def s = namespace(jenkins.scm.api.FormTagLib)
+
+f.section(title: "Bitbucket SCM Template") {
+
+    f.entry(title: _("bitbucket.scm.credentials"), field: "credentialsId") {
+        c.select(context: app, includeUser: false, expressionAllowed: false, checkMethod: "post")
+    }
+
+    f.entry(title: _("bitbucket.scm.server"), field: "serverId") {
+        f.select(context: app, checkMethod: "post")
+    }
+
+    f.entry(title: _("bitbucket.scm.projectName"), field: "projectName") {
+        f.combobox(context: app, placeholder: "Start typing to find a project or click help to see how to find a personal project", checkMethod: "post", clazz: 'searchable')
+    }
+
+    f.entry(title: _("bitbucket.scm.mirror"), field: "mirrorName") {
+        f.select(checkMethod: "post")
+    }
+
+    f.entry(title: _("bitbucket.scm.ssh-credentials"), field: "sshCredentialsId") {
+        c.select(context: app, includeUser: false, expressionAllowed: false, checkMethod: "post")
+    }
+
+    f.entry(title: _("Behaviours")) {
+        s.traits(field: "traits")
+    }
+}
