@@ -263,10 +263,10 @@ public class OAuth1aRequestFilterTest {
     public void testNotAuthorizingAnonymousUsers() throws IOException, ServletException {
         setupRequestWithParameters(rsaConsumerParameterMap);
         when(securityChecker.isSecurityEnabled()).thenReturn(false);
-        when(store.get(TOKEN)).thenReturn(Optional.of(ACCESS_TOKEN));
 
         filter.doFilter(request, response, chain);
         verifyNoMoreInteractions(trustedUnderlyingSystemAuthorizerFilter);
+        verify(chain).doFilter(isA(HttpServletRequest.class), isA(HttpServletResponse.class));
     }
 
     private void setupRequestWithParameters(Map<String, String[]> params) {
