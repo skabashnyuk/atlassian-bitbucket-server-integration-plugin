@@ -1,6 +1,7 @@
 package com.atlassian.bitbucket.jenkins.internal.jenkins.oauth.servlet;
 
 import com.atlassian.bitbucket.jenkins.internal.applink.oauth.Randomizer;
+import com.atlassian.bitbucket.jenkins.internal.applink.oauth.serviceprovider.auth.SecurityModeChecker;
 import com.atlassian.bitbucket.jenkins.internal.applink.oauth.serviceprovider.exception.InvalidTokenException;
 import com.atlassian.bitbucket.jenkins.internal.applink.oauth.serviceprovider.token.ServiceProviderToken;
 import com.atlassian.bitbucket.jenkins.internal.applink.oauth.serviceprovider.token.ServiceProviderTokenStore;
@@ -15,6 +16,7 @@ import net.oauth.OAuthMessage;
 import net.oauth.OAuthProblemException;
 import net.oauth.server.OAuthServlet;
 import net.sf.json.JSONObject;
+import org.acegisecurity.AccessDeniedException;
 import org.kohsuke.stapler.HttpResponse;
 import org.kohsuke.stapler.HttpResponses;
 import org.kohsuke.stapler.StaplerRequest;
@@ -221,14 +223,18 @@ public class AuthorizeConfirmationConfig extends AbstractDescribableImpl<Authori
         private Randomizer randomizer;
         @Inject
         private ServiceProviderTokenStore tokenStore;
+        @Inject
+        private SecurityModeChecker securityChecker;
 
         AuthorizeConfirmationConfigDescriptor(JenkinsAuthWrapper jenkinsAuthWrapper,
                                               ServiceProviderTokenStore tokenStore,
                                               Randomizer randomizer,
+                                              SecurityModeChecker securityChecker,
                                               Clock clock) {
             this.jenkinsAuthWrapper = jenkinsAuthWrapper;
             this.tokenStore = tokenStore;
             this.randomizer = randomizer;
+            this.securityChecker = securityChecker;
             this.clock = clock;
         }
 
@@ -236,6 +242,10 @@ public class AuthorizeConfirmationConfig extends AbstractDescribableImpl<Authori
         }
 
         public AuthorizeConfirmationConfig createInstance(@Nullable StaplerRequest req) throws FormException {
+            if (securityChecker.isSecurityEnabled() && !isAuthenticated()) {
+                // If security is enabled, redirect unauthenticated users to the login screen
+                throw new AccessDeniedException("Anonymous Oauth is not supported when security is enabled.");
+            }
             try {
                 OAuthMessage requestMessage = OAuthServlet.getMessage(req, null);
                 requestMessage.requireParameters(OAUTH_TOKEN);
