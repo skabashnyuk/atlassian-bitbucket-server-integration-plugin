@@ -80,38 +80,46 @@ public class OAuth1aRequestFilter implements Filter {
         HttpServletRequest req = (HttpServletRequest) request;
         HttpServletResponse resp = (HttpServletResponse) response;
 
-        if (isOauthRequest(req)) {
-            OAuthMessage message = OAuthServlet.getMessage(req, getLogicalUri(req));
-            String tokenStr = getTokenFromRequest(req, resp, message);
-            if (tokenStr == null) {
-                return;
-            } else {
-                String user;
-                try {
-                    user = verifyToken(message, tokenStr);
-                } catch (OAuthProblemException ope) {
-                    handleOAuthProblemException(req, resp, message, ope);
-                    return;
-                } catch (Exception ex) {
-                    handleException(req, resp, message, ex);
-                    return;
-                }
-
-                try {
-                    resp = new OAuthWWWAuthenticateAddingResponse(resp, getBaseUrl(req));
-                    if (securityChecker.isSecurityEnabled()) {
-                        authorizerFilter.authorize(user, req, resp, chain);
-                    }
-                    logOAuthRequest(req, "OAuth authentication successful. Request marked as OAuth.", log);
-                    return;
-                } catch (NoSuchUserException exception) {
-                    String msg =
-                            format("User %s associated with the token %s not found in the system", user, tokenStr);
-                    OAuthServlet.handleException(resp, new OAuthProblemException(msg), getBaseUrl(req));
-                }
-            }
-        } else {
+        if (!securityChecker.isSecurityEnabled()) {
+            // Security is not enabled, so it can't be an oauth request. Continue the filter chain
             chain.doFilter(request, response);
+            return;
+        }
+
+        if (!isOauthRequest(req)) {
+            // Not an oauth request. Continue the filter chain
+            chain.doFilter(request, response);
+            return;
+        }
+
+        OAuthMessage message = OAuthServlet.getMessage(req, getLogicalUri(req));
+        String tokenStr = getTokenFromRequest(req, resp, message);
+        if (tokenStr == null) {
+            // Can't get the token from the oauth string. Continue the filter chain
+            chain.doFilter(request, response);
+            return;
+        }
+
+        // Get the user associated with this token
+        String user;
+        try {
+            user = verifyToken(message, tokenStr);
+        } catch (OAuthProblemException ope) {
+            handleOAuthProblemException(req, resp, message, ope);
+            return;
+        } catch (Exception ex) {
+            handleException(req, resp, message, ex);
+            return;
+        }
+
+        // Generate the oauth response and authorize the user
+        try {
+            OAuthWWWAuthenticateAddingResponse oauthResp = new OAuthWWWAuthenticateAddingResponse(resp, getBaseUrl(req));
+            authorizerFilter.authorize(user, req, oauthResp, chain);
+            logOAuthRequest(req, "OAuth authentication successful. Request marked as OAuth.", log);
+        } catch (NoSuchUserException exception) {
+            String msg = format("User %s associated with the token %s not found in the system", user, tokenStr);
+            OAuthServlet.handleException(resp, new OAuthProblemException(msg), getBaseUrl(req));
         }
     }
 

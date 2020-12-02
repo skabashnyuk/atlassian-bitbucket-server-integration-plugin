@@ -1,6 +1,7 @@
 package com.atlassian.bitbucket.jenkins.internal.jenkins.oauth.servlet;
 
 import com.atlassian.bitbucket.jenkins.internal.applink.oauth.Randomizer;
+import com.atlassian.bitbucket.jenkins.internal.applink.oauth.serviceprovider.auth.SecurityModeChecker;
 import com.atlassian.bitbucket.jenkins.internal.applink.oauth.serviceprovider.token.ServiceProviderToken;
 import com.atlassian.bitbucket.jenkins.internal.applink.oauth.serviceprovider.token.ServiceProviderTokenStore;
 import com.atlassian.bitbucket.jenkins.internal.jenkins.oauth.servlet.AuthorizeConfirmationConfig.*;
@@ -8,6 +9,7 @@ import com.atlassian.bitbucket.jenkins.internal.provider.JenkinsAuthWrapper;
 import hudson.model.Descriptor.FormException;
 import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
+import org.acegisecurity.AccessDeniedException;
 import org.acegisecurity.Authentication;
 import org.acegisecurity.providers.UsernamePasswordAuthenticationToken;
 import org.apache.commons.text.TextStringBuilder;
@@ -61,8 +63,10 @@ public class AuthorizeConfirmationConfigTest {
     @Mock
     private StaplerResponse response;
     @Mock
+    private SecurityModeChecker securityChecker;
+    @Mock
     private JenkinsAuthWrapper jenkinsAuthWrapper;
-    private Authentication authentication = new UsernamePasswordAuthenticationToken("test", "test");
+    private Authentication authentication = new UsernamePasswordAuthenticationToken("test", "test", null);
     private TextStringBuilder stringBuilder = new TextStringBuilder();
 
     @Before
@@ -73,6 +77,7 @@ public class AuthorizeConfirmationConfigTest {
         when(jenkinsAuthWrapper.getAuthentication()).thenReturn(authentication);
         when(response.getWriter()).thenReturn(new PrintWriter(stringBuilder.asWriter()));
         when(randomizer.randomAlphanumericString(anyInt())).thenReturn(VERIFIER);
+        when(securityChecker.isSecurityEnabled()).thenReturn(true);
 
         JSONObject jsonObject = new JSONObject();
         Map<String, String> p = new HashMap<>();
@@ -87,6 +92,19 @@ public class AuthorizeConfirmationConfigTest {
         AuthorizeConfirmationConfigDescriptor descriptor = createDescriptor();
 
         expectedException.expect(FormException.class);
+        descriptor.createInstance(request);
+    }
+
+    @Test
+    public void throwsExceptionForAnonymousUserWithSecurityEnabled() throws FormException {
+        // for some reason this constructor will set `authenticated` to `false`
+        Authentication anonymousAuth = new UsernamePasswordAuthenticationToken("test", "test");
+        when(jenkinsAuthWrapper.getAuthentication()).thenReturn(anonymousAuth);
+        AuthorizeConfirmationConfigDescriptor descriptor = createDescriptor();
+
+        when(securityChecker.isSecurityEnabled()).thenReturn(true);
+
+        expectedException.expect(AccessDeniedException.class);
         descriptor.createInstance(request);
     }
 
@@ -177,7 +195,8 @@ public class AuthorizeConfirmationConfigTest {
     }
 
     private AuthorizeConfirmationConfigDescriptor createDescriptor() {
-        return new AuthorizeConfirmationConfigDescriptor(jenkinsAuthWrapper, serviceProviderTokenStore, randomizer, clock);
+        return new AuthorizeConfirmationConfigDescriptor(jenkinsAuthWrapper, serviceProviderTokenStore, randomizer,
+                securityChecker, clock);
     }
 
     private Map<String, String[]> mapOf(String k1, String[] v1) {
