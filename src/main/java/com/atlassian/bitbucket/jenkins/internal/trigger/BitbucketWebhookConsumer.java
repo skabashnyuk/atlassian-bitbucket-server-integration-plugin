@@ -65,6 +65,10 @@ public class BitbucketWebhookConsumer {
         triggerJob(event, refChangedDetails);
     }
 
+    void process(PullRequestWebhookEvent event){
+        LOGGER.fine(format("Received pull request event"));
+    }
+
     private static Set<String> eligibleRefs(RefsChangedWebhookEvent event) {
         return event.getChanges()
                 .stream()
