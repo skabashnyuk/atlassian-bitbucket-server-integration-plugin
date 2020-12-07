@@ -10,15 +10,15 @@ import static java.util.Objects.requireNonNull;
 public class BitbucketPullRequest {
     private final int id;
     private final BitbucketPullState state;
-    private final BitbucketRef fromRef;
-    private final BitbucketRef toRef;
+    private final BitbucketPullRef fromRef;
+    private final BitbucketPullRef toRef;
 
     @JsonCreator
     public BitbucketPullRequest(
             @JsonProperty("id") int id,
             @JsonProperty("state") BitbucketPullState state,
-            @JsonProperty("fromRef") BitbucketRef fromRef,
-            @JsonProperty("toRef") BitbucketRef toRef) {
+            @JsonProperty("fromRef") BitbucketPullRef fromRef,
+            @JsonProperty("toRef") BitbucketPullRef toRef) {
         this.id = requireNonNull(id, "id");
         this.state = requireNonNull(state, "state");
         this.fromRef = requireNonNull(fromRef, "fromRef");
@@ -33,11 +33,11 @@ public class BitbucketPullRequest {
         return state;
     }
 
-    public BitbucketRef getFromRef() {
+    public BitbucketPullRef getFromRef() {
         return fromRef;
     }
 
-    public BitbucketRef getToRef() {
+    public BitbucketPullRef getToRef() {
         return toRef;
     }
 }
