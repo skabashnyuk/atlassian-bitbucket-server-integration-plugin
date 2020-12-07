@@ -22,4 +22,16 @@ public class BitbucketPullRef {
         this.displayId = requireNonNull(displayId, "displayId");
         this.repository = requireNonNull(repository, "repository");
     }
+
+    public String getDisplayId() {
+        return displayId;
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public BitbucketRepository getRepository() {
+        return repository;
+    }
 }

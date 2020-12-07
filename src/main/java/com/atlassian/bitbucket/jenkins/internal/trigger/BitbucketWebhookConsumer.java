@@ -65,8 +65,13 @@ public class BitbucketWebhookConsumer {
         triggerJob(event, refChangedDetails);
     }
 
-    void process(PullRequestWebhookEvent event){
+    void process(PullRequestWebhookEvent event) {
         LOGGER.fine(format("Received pull request event"));
+
+        // TODO: Can we do eligible refs? For now building everything
+
+        RefChangedDetails refChangedDetails = new RefChangedDetails(event);
+        triggerJob(event, refChangedDetails);
     }
 
     private static Set<String> eligibleRefs(RefsChangedWebhookEvent event) {
@@ -177,6 +182,22 @@ public class BitbucketWebhookConsumer {
         return true;
     }
 
+    private void triggerJob(PullRequestWebhookEvent event, RefChangedDetails refChangedDetails) {
+        try (ACLContext ctx = ACL.as(ACL.SYSTEM)) {
+            BitbucketWebhookTriggerRequest.Builder requestBuilder = BitbucketWebhookTriggerRequest.builder();
+            event.getActor().ifPresent(requestBuilder::actor);
+
+            Jenkins.get().getAllItems(ParameterizedJobMixIn.ParameterizedJob.class)
+                    .stream()
+                    .map(BitbucketWebhookConsumer::toTriggerDetails)
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .filter(triggerDetails -> hasMatchingRepository(refChangedDetails, triggerDetails.getJob()))
+                    .peek(triggerDetails -> LOGGER.fine("Triggering " + triggerDetails.getJob().getFullDisplayName()))
+                    .forEach(triggerDetails -> triggerDetails.getTrigger().trigger(requestBuilder.build()));
+        }
+    }
+
     private void triggerJob(RefsChangedWebhookEvent event,
                             RefChangedDetails refChangedDetails) {
         try (ACLContext ctx = ACL.as(ACL.SYSTEM)) {
@@ -238,17 +259,25 @@ public class BitbucketWebhookConsumer {
         private final BitbucketRepository repository;
 
         private RefChangedDetails(RefsChangedWebhookEvent event) {
-            this.cloneLinks = cloneLinks(event);
             this.repository = event.getRepository();
+            this.cloneLinks = cloneLinks(this.repository);
             this.mirrorName = "";
             this.isMirrorSyncEvent = false;
         }
 
         private RefChangedDetails(MirrorSynchronizedWebhookEvent event) {
-            this.cloneLinks = cloneLinks(event);
             this.repository = event.getRepository();
+            this.cloneLinks = cloneLinks(this.repository);
             this.mirrorName = event.getMirrorServer().map(BitbucketMirrorServer::getName).orElse("");
             this.isMirrorSyncEvent = true;
+        }
+
+        private RefChangedDetails(PullRequestWebhookEvent event) {
+            this.repository = event.getPullRequest().getFromRef().getRepository();
+            this.cloneLinks = cloneLinks(this.repository);
+            this.mirrorName = "";
+            this.isMirrorSyncEvent = false;
+
         }
 
         public Set<String> getCloneLinks() {
@@ -267,9 +296,8 @@ public class BitbucketWebhookConsumer {
             return isMirrorSyncEvent;
         }
 
-        private static Set<String> cloneLinks(RefsChangedWebhookEvent event) {
-            return event.getRepository()
-                    .getCloneUrls()
+        private static Set<String> cloneLinks(BitbucketRepository repository) {
+            return repository.getCloneUrls()
                     .stream()
                     .map(BitbucketNamedLink::getHref)
                     .collect(Collectors.toSet());

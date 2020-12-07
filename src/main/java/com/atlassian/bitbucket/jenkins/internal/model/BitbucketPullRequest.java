@@ -8,6 +8,7 @@ import static java.util.Objects.requireNonNull;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class BitbucketPullRequest {
+
     private final int id;
     private final BitbucketPullState state;
     private final BitbucketPullRef fromRef;
