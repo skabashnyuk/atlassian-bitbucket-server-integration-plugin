@@ -31,7 +31,7 @@ public class OAuthConsumerEntry extends AbstractDescribableImpl<OAuthConsumerEnt
      */
     private static String CONSUMER_KEY_FIELD = "consumerKey";
     private static String CONSUMER_NAME_FIELD = "consumerName";
-    private static String CONSUMER_SECRET_FIELD = "consumerSecret";
+    private static String CONSUMER_SECRET_FIELD = "sharedSecret";
     private static String CONSUMER_CALLBACKURL_FIELD = "callbackUrl";
 
     private static final OAuthConsumerEntry BLANK_ENTRY =
