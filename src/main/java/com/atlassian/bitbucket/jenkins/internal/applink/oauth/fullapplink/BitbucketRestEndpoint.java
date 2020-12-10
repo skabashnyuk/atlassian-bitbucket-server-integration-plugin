@@ -11,7 +11,7 @@ public class BitbucketRestEndpoint implements UnprotectedRootAction {
 
     public Action getApplinks(String version) {
         // The version doesn't matter. If Bitbucket says it's okay, then it's okay
-        return new ApplinkEndpoint();
+        return new ApplinkConfigurationEndpoint();
     }
 
     @CheckForNull

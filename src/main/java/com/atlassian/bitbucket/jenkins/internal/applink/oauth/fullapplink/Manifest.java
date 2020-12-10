@@ -3,7 +3,7 @@ package com.atlassian.bitbucket.jenkins.internal.applink.oauth.fullapplink;
 import com.thoughtworks.xstream.annotations.XStreamAlias;
 import com.thoughtworks.xstream.annotations.XStreamImplicit;
 
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 enum TypeId {
@@ -24,37 +24,32 @@ enum TypeId {
 @XStreamAlias("manifest")
 public class Manifest {
 
-    private final String applinkVersion = "7.2.0";
-    private final String buildNumber = "201001";
-    private final String iconUrl;
     private final String id;
-    @XStreamImplicit(itemFieldName = "incomingAuthenticationType")
-    private final List incomingAuthenticationType = Arrays.asList(
-            "com.atlassian.applinks.api.auth.types.TwoLeggedOAuthAuthenticationProvider",
-            "com.atlassian.applinks.api.auth.types.OAuthAuthenticationProvider",
-            "com.atlassian.applinks.api.auth.types.TwoLeggedOAuthWithImpersonationAuthenticationProvider",
-            "com.atlassian.applinks.api.auth.types.BasicAuthenticationProvider",
-            "com.atlassian.applinks.api.auth.types.TrustedAppsAuthenticationProvider"
-    );
     private final String name;
-    @XStreamImplicit(itemFieldName = "outgoingAuthenticationType")
-    private final List outgoingAuthenticationType = Arrays.asList(
-            "com.atlassian.applinks.api.auth.types.TwoLeggedOAuthAuthenticationProvider",
-            "com.atlassian.applinks.api.auth.types.OAuthAuthenticationProvider",
-            "com.atlassian.applinks.api.auth.types.TwoLeggedOAuthWithImpersonationAuthenticationProvider",
-            "com.atlassian.applinks.api.auth.types.BasicAuthenticationProvider",
-            "com.atlassian.applinks.api.auth.types.TrustedAppsAuthenticationProvider"
-    );
-    private final boolean publicSignup = false;
     private final String typeId = TypeId.JENKINS.getValue();
-    private final String url;
     private final String version = "2.1.1";
+    private final String buildNumber = "201001";
+    private final String applinkVersion = "7.2.0";
+
+    @XStreamImplicit(itemFieldName = "incomingAuthenticationType")
+    private final List incomingAuthenticationType = Collections.singletonList(
+            "com.atlassian.applinks.api.auth.types.OAuthAuthenticationProvider"
+    );
+
+    @XStreamImplicit(itemFieldName = "outgoingAuthenticationType")
+    private final List outgoingAuthenticationType = Collections.emptyList();
+
+    private final boolean publicSignup = false;
+    private final String url;
+    private final String iconUrl;
+    private final String iconUri;
 
     public Manifest(String id, String name, String url) {
         this.id = id;
         this.name = name;
         this.url = url;
         this.iconUrl = url + "/static/f70b2c22/images/headshot.png";
+        this.iconUri = url + "/static/f70b2c22/images/headshot.png";
     }
 
     public String getApplinkVersion() {
@@ -91,6 +86,10 @@ public class Manifest {
 
     public String getUrl() {
         return url;
+    }
+
+    public String getIconUri() {
+        return iconUri;
     }
 
     public String getVersion() {
