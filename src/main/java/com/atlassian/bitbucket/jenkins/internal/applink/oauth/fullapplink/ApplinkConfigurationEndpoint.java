@@ -46,6 +46,15 @@ public class ApplinkConfigurationEndpoint extends InvisibleAction {
         };
     }
 
+    @GET
+    @WebMethod(name = "consumer-info")
+    public HttpResponse getConsumerInfo() {
+        return (request, response, node) -> {
+            response.setContentType("application/json;charset=UTF-8");
+            response.serveFile(request, getClass().getResource("/applink/consumer-info.xml"));
+        };
+    }
+
     public Action getApplicationLink(String applinkId) {
         // TODO: Use applink identifier in a store
         return new ApplinkEndpoint(APPLINK_ID);

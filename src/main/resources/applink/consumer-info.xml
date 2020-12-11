@@ -1,0 +1,6 @@
+<consumer>
+    <key>Jenkins:0000001</key>
+    <name>Jenkins</name>
+    <publicKey>MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAv9hNxR2ZiVHB2+LWZhLVV6UwRKndPusCNxuc5PSMOCnnw7xjF6b7TbuWezSfZjvv+L8aBRVaeQJ2+tUYF8u+LvyAInOVCrqAPpQglrRVPxdFYiw6wMHpPXlo/w5CDW7+VlgcDgcuDGHbX3nFTeE7u2GTeZ4cdRmw9siF5G29cUPhS5Ase8v/qnsD6NhZbFbIKbrcI5bwSwNX148STF5tAVtPEqOqKP55SLr0qAA3Ov/NULvrWe5hlephxiw3CNb8i1HFIql35AsFGuThX9Gtwt5OHCvbn6aL5FJ7FVNl0Mn9rK0W4IAKIXuPp8Qz+hzDIVYsJZG/51TwMbz6AW66pwIDAQAB</publicKey>
+    <description>Jenkins at http://localhost:8080/jenkins</description>
+</consumer>
