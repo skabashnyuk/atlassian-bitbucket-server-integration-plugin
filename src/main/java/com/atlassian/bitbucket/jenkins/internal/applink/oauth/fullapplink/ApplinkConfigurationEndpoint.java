@@ -1,5 +1,6 @@
 package com.atlassian.bitbucket.jenkins.internal.applink.oauth.fullapplink;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.model.Action;
 import hudson.model.InvisibleAction;
 import hudson.util.XStream2;
@@ -10,6 +11,7 @@ import org.kohsuke.stapler.verb.GET;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
 public class ApplinkConfigurationEndpoint extends InvisibleAction {
 
@@ -18,6 +20,7 @@ public class ApplinkConfigurationEndpoint extends InvisibleAction {
 
     @GET
     @WebMethod(name = "manifest")
+    @SuppressFBWarnings("DM_DEFAULT_ENCODING")
     public HttpResponse getManifest() throws IOException {
 
         Manifest manifest = new Manifest(APPLINK_ID, "Applinks Jenkins Test", Jenkins.get().getRootUrl());
@@ -25,11 +28,12 @@ public class ApplinkConfigurationEndpoint extends InvisibleAction {
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
         xStream.toXMLUTF8(manifest, outputStream);
-        String body = outputStream.toString();
+        String body = new String(outputStream.toByteArray(), StandardCharsets.UTF_8);
+        String body2 = body.replace("?xml version=\"1.1\"", "?xml version=\"1.0\"");
 
         return (request, response, node) -> {
             response.setContentType("application/xml;charset=UTF-8");
-            response.getWriter().println(body);
+            response.getWriter().println(body2);
         };
     }
 

@@ -2,6 +2,7 @@ package com.atlassian.bitbucket.jenkins.internal.applink.oauth.fullapplink;
 
 import com.thoughtworks.xstream.annotations.XStreamAlias;
 import com.thoughtworks.xstream.annotations.XStreamImplicit;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import java.util.Collections;
 import java.util.List;
@@ -26,10 +27,14 @@ public class Manifest {
 
     private final String id;
     private final String name;
+    @SuppressFBWarnings("SS_SHOULD_BE_STATIC")
     private final String typeId = TypeId.JENKINS.getValue();
+    @SuppressFBWarnings("SS_SHOULD_BE_STATIC")
     private final String version = "2.1.1";
+    @SuppressFBWarnings("SS_SHOULD_BE_STATIC")
     private final String buildNumber = "201001";
-    private final String applinkVersion = "7.2.0";
+    @SuppressFBWarnings("SS_SHOULD_BE_STATIC")
+    private final String applinksVersion = "7.2.0";
 
     @XStreamImplicit(itemFieldName = "incomingAuthenticationType")
     private final List incomingAuthenticationType = Collections.singletonList(
@@ -39,6 +44,7 @@ public class Manifest {
     @XStreamImplicit(itemFieldName = "outgoingAuthenticationType")
     private final List outgoingAuthenticationType = Collections.emptyList();
 
+    @SuppressFBWarnings("SS_SHOULD_BE_STATIC")
     private final boolean publicSignup = false;
     private final String url;
     private final String iconUrl;
@@ -52,8 +58,8 @@ public class Manifest {
         this.iconUri = url + "/static/f70b2c22/images/headshot.png";
     }
 
-    public String getApplinkVersion() {
-        return applinkVersion;
+    public String getApplinksVersion() {
+        return applinksVersion;
     }
 
     public String getBuildNumber() {
