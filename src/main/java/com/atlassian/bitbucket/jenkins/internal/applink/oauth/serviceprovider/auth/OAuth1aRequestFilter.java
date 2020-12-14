@@ -12,6 +12,7 @@ import net.oauth.OAuthMessage;
 import net.oauth.OAuthProblemException;
 import net.oauth.OAuthValidator;
 import net.oauth.server.OAuthServlet;
+import org.tuckey.web.filters.urlrewrite.UrlRewriteFilter;
 
 import javax.annotation.CheckForNull;
 import javax.annotation.Nullable;
@@ -21,9 +22,13 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpServletResponseWrapper;
 import java.io.IOException;
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Clock;
+import java.util.Enumeration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.logging.Logger;
@@ -58,6 +63,7 @@ public class OAuth1aRequestFilter implements Filter {
     private final Clock clock;
     private final TrustedUnderlyingSystemAuthorizerFilter authorizerFilter;
     private final SecurityModeChecker securityChecker;
+    private final UrlRewriteFilter urlRewriteFilter;
 
     @Inject
     public OAuth1aRequestFilter(ServiceProviderConsumerStore consumerStore,
@@ -72,14 +78,21 @@ public class OAuth1aRequestFilter implements Filter {
         this.clock = clock;
         this.authorizerFilter = authorizerFilter;
         this.securityChecker = securityChecker;
+        urlRewriteFilter = new UrlRewriteFilter();
     }
+
+    This is a deliberate problem to make it impossible to compile, and thus merge and accidentally release. This class really needs fixing (this is not a comment to break the compilation)
 
     @Override
     public void doFilter(ServletRequest request, ServletResponse response,
                          FilterChain chain) throws IOException, ServletException {
         HttpServletRequest req = (HttpServletRequest) request;
         HttpServletResponse resp = (HttpServletResponse) response;
-
+        System.out.println(req.getRequestURI());
+        urlRewriteFilter.doFilter(request, response, chain);
+        if(true){
+            return;
+        }
         if (!securityChecker.isSecurityEnabled()) {
             // Security is not enabled, so it can't be an oauth request. Continue the filter chain
             chain.doFilter(request, response);
@@ -124,11 +137,52 @@ public class OAuth1aRequestFilter implements Filter {
     }
 
     @Override
-    public void init(FilterConfig filterConfig) {
+    public void init(FilterConfig filterConfig) throws ServletException {
+        /*
+        my deity of choice, is this horrible, but we were quickly testing the viability of the idea, don't judge us.
+        This is not shippable.
+         */
+        FilterConfig myFilter = new FilterConfig() {
+            @Override
+            public String getFilterName() {
+                return filterConfig.getFilterName();
+            }
+
+            @Override
+            public ServletContext getServletContext() {
+                ServletContext proxied = (ServletContext) Proxy.newProxyInstance(getClass().getClassLoader(), new Class[]{ServletContext.class}, new InvocationHandler() {
+                    @Override
+                    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+                        if("getResourceAsStream".equals(method.getName())) {
+                            if("/urlrewrite.xml".equals(args[0])) {
+                                return OAuth1aRequestFilter.class.getClassLoader().getResourceAsStream("/urlrewrite.xml");
+                            }
+                        }
+                        return method.invoke(filterConfig.getServletContext(), args);
+                    }
+                });
+                return proxied;
+            }
+
+            @Override
+            public String getInitParameter(String name) {
+                if("confPath".equals(name)) {
+                    return "/urlrewrite.xml";
+                }
+                return filterConfig.getInitParameter(name);
+            }
+
+            @Override
+            public Enumeration<String> getInitParameterNames() {
+                return  filterConfig.getInitParameterNames();
+            }
+        };
+        urlRewriteFilter.init(myFilter);
     }
 
     @Override
     public void destroy() {
+        urlRewriteFilter.destroy();
     }
 
     private String verifyToken(OAuthMessage message,

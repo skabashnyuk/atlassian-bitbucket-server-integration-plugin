@@ -23,12 +23,12 @@ public class BitbucketRestEndpoint implements UnprotectedRootAction {
     @CheckForNull
     @Override
     public String getDisplayName() {
-        return "rest";
+        return "blah";  //this is horrible, but it was to prove the point that we were supporting urls not under /rest
     }
 
     @CheckForNull
     @Override
     public String getUrlName() {
-        return "rest";
+        return "blah";
     }
 }

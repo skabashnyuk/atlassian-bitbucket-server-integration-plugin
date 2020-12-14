@@ -1,0 +1,27 @@
+<urlrewrite>
+    <!-- basic filter, not finished, there is more work to do here as well -->
+    <!--<rule>-->
+        <!--<note>-->
+
+        <!--</note>-->
+        <!--<from>/rest/applinks/1.0/manifest</from>-->
+        <!--<to type="redirect">%{context-path}/blah/applinks/1.0/manifest</to>-->
+    <!--</rule>-->
+    <rule>
+        <note>
+
+        </note>
+        <from>/plugins/servlet/applinks/auth/conf/oauth/add-consumer-by-url/</from>
+        <to type="redirect">%{context-path}/blah/applinks/1.0/manifest/</to>
+    </rule>
+
+    <rule>
+        <note>
+
+        </note>
+        <from>/plugins/servlet/oauth/consumer-info</from>
+        <to type="redirect">%{context-path}/blah/applinks/1.0/consumer-info/</to>
+    </rule>
+
+
+</urlrewrite>
