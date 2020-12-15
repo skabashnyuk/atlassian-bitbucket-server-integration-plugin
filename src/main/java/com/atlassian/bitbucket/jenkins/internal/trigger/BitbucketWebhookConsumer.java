@@ -1,10 +1,7 @@
 package com.atlassian.bitbucket.jenkins.internal.trigger;
 
 import com.atlassian.bitbucket.jenkins.internal.config.BitbucketPluginConfiguration;
-import com.atlassian.bitbucket.jenkins.internal.model.BitbucketMirrorServer;
-import com.atlassian.bitbucket.jenkins.internal.model.BitbucketNamedLink;
-import com.atlassian.bitbucket.jenkins.internal.model.BitbucketRefChangeType;
-import com.atlassian.bitbucket.jenkins.internal.model.BitbucketRepository;
+import com.atlassian.bitbucket.jenkins.internal.model.*;
 import com.atlassian.bitbucket.jenkins.internal.scm.BitbucketSCM;
 import com.atlassian.bitbucket.jenkins.internal.scm.BitbucketSCMRepository;
 import com.atlassian.bitbucket.jenkins.internal.scm.BitbucketSCMSource;
@@ -66,7 +63,7 @@ public class BitbucketWebhookConsumer {
     }
 
     void process(PullRequestWebhookEvent event) {
-        LOGGER.fine(format("Received pull request event"));
+        LOGGER.info(format("Received pull request event"));
 
         // TODO: Can we do eligible refs? For now building everything
 
@@ -133,7 +130,8 @@ public class BitbucketWebhookConsumer {
 
     @Nullable
     private static BitbucketWebhookTriggerImpl triggerFrom(ParameterizedJobMixIn.ParameterizedJob<?, ?> job) {
-        Map<TriggerDescriptor, Trigger<?>> triggers = job.getTriggers();
+         Map<TriggerDescriptor, Trigger<?>> triggers = job.getTriggers();
+
         for (Trigger<?> candidate : triggers.values()) {
             if (candidate instanceof BitbucketWebhookTriggerImpl) {
                 return (BitbucketWebhookTriggerImpl) candidate;
@@ -182,19 +180,23 @@ public class BitbucketWebhookConsumer {
         return true;
     }
 
+    private void getJobs(RefChangedDetails refChangedDetails, BitbucketWebhookTriggerRequest.Builder requestBuilder){
+        Jenkins.get().getAllItems(ParameterizedJobMixIn.ParameterizedJob.class)
+                .stream()
+                .map(BitbucketWebhookConsumer::toTriggerDetails)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .filter(triggerDetails -> hasMatchingRepository(refChangedDetails, triggerDetails.getJob()))
+                .peek(triggerDetails -> LOGGER.fine("Triggering " + triggerDetails.getJob().getFullDisplayName()))
+                .forEach(triggerDetails -> triggerDetails.getTrigger().trigger(requestBuilder.build()));
+    }
+
     private void triggerJob(PullRequestWebhookEvent event, RefChangedDetails refChangedDetails) {
         try (ACLContext ctx = ACL.as(ACL.SYSTEM)) {
             BitbucketWebhookTriggerRequest.Builder requestBuilder = BitbucketWebhookTriggerRequest.builder();
             event.getActor().ifPresent(requestBuilder::actor);
-
-            Jenkins.get().getAllItems(ParameterizedJobMixIn.ParameterizedJob.class)
-                    .stream()
-                    .map(BitbucketWebhookConsumer::toTriggerDetails)
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
-                    .filter(triggerDetails -> hasMatchingRepository(refChangedDetails, triggerDetails.getJob()))
-                    .peek(triggerDetails -> LOGGER.fine("Triggering " + triggerDetails.getJob().getFullDisplayName()))
-                    .forEach(triggerDetails -> triggerDetails.getTrigger().trigger(requestBuilder.build()));
+            getJobs(refChangedDetails, requestBuilder);
+            BitbucketSCMHeadPREvent.fireNow(new BitbucketSCMHeadPREvent(SCMEvent.Type.CREATED, event, event.getPullRequest().getFromRef().getRepository().getSlug()));
         }
     }
 
@@ -203,17 +205,45 @@ public class BitbucketWebhookConsumer {
         try (ACLContext ctx = ACL.as(ACL.SYSTEM)) {
             BitbucketWebhookTriggerRequest.Builder requestBuilder = BitbucketWebhookTriggerRequest.builder();
             event.getActor().ifPresent(requestBuilder::actor);
-
-            Jenkins.get().getAllItems(ParameterizedJobMixIn.ParameterizedJob.class)
-                    .stream()
-                    .map(BitbucketWebhookConsumer::toTriggerDetails)
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
-                    .filter(triggerDetails -> hasMatchingRepository(refChangedDetails, triggerDetails.getJob()))
-                    .peek(triggerDetails -> LOGGER.fine("Triggering " + triggerDetails.getJob().getFullDisplayName()))
-                    .forEach(triggerDetails -> triggerDetails.getTrigger().trigger(requestBuilder.build()));
+            getJobs(refChangedDetails, requestBuilder);
             //fire the head event to indicate to the SCMSources that changes have happened.
             BitbucketSCMHeadEvent.fireNow(new BitbucketSCMHeadEvent(SCMEvent.Type.UPDATED, event, event.getRepository().getSlug()));
+        }
+    }
+
+    private static class BitbucketSCMHeadPREvent extends SCMHeadEvent<PullRequestWebhookEvent> {
+
+        public BitbucketSCMHeadPREvent(Type type, PullRequestWebhookEvent payload, String origin) {
+            super(type, payload, origin);
+        }
+
+        @Override
+        public String getSourceName() {
+            return getPayload().getPullRequest().getFromRef().getRepository().getName();
+        }
+
+        @Override
+        public Map<SCMHead, SCMRevision> heads(SCMSource source) {
+            if (!(source instanceof BitbucketSCMSource)) {
+                return emptyMap();
+            }
+            BitbucketSCMSource src = (BitbucketSCMSource) source;
+            if (!matchingRepo(getPayload().getPullRequest().getFromRef().getRepository(), src.getBitbucketSCMRepository())) {
+                return emptyMap();
+            }
+            ArrayList<BitbucketPullRef> refStream = new ArrayList<BitbucketPullRef>();
+            refStream.add(getPayload().getPullRequest().getFromRef());
+            return refStream.stream().collect(Collectors.toMap(ref -> new GitBranchSCMHead(ref.getDisplayId()), ref -> new GitBranchSCMRevision(new GitBranchSCMHead(ref.getDisplayId()), ref.getLatestCommit())));
+        }
+
+        @Override
+        public boolean isMatch(SCMNavigator navigator) {
+            return false;
+        }
+
+        @Override
+        public boolean isMatch(SCM scm) {
+            return false; //see comment on the overriden method
         }
     }
 
