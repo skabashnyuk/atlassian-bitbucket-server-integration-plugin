@@ -10,14 +10,11 @@ import com.atlassian.bitbucket.jenkins.internal.model.BitbucketWebhookSupportedE
 import com.atlassian.bitbucket.jenkins.internal.trigger.BitbucketWebhookEvent;
 
 import javax.annotation.Nullable;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.logging.Logger;
 
 import static com.atlassian.bitbucket.jenkins.internal.trigger.BitbucketWebhookEndpoint.BIBUCKET_WEBHOOK_URL;
-import static com.atlassian.bitbucket.jenkins.internal.trigger.BitbucketWebhookEvent.MIRROR_SYNCHRONIZED_EVENT;
-import static com.atlassian.bitbucket.jenkins.internal.trigger.BitbucketWebhookEvent.REPO_REF_CHANGE;
+import static com.atlassian.bitbucket.jenkins.internal.trigger.BitbucketWebhookEvent.*;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 
@@ -108,17 +105,36 @@ public class BitbucketWebhookHandler implements WebhookHandler {
                 BitbucketWebhookSupportedEvents events = serverCapabilities.getWebhookSupportedEvents();
                 Set<String> hooks = events.getApplicationWebHooks();
                 if (hooks.contains(MIRROR_SYNCHRONIZED_EVENT.getEventId())) {
-                    return MIRROR_SYNCHRONIZED_EVENT;
-                } else if (hooks.contains(REPO_REF_CHANGE.getEventId())) {
-                    return REPO_REF_CHANGE;
-                } else {
+                    return Collections.singleton(MIRROR_SYNCHRONIZED_EVENT);
+                }
+                Collection<BitbucketWebhookEvent> supportedEvents = new HashSet<>();
+
+                if (hooks.contains(REPO_REF_CHANGE.getEventId())) {
+                    supportedEvents.add(REPO_REF_CHANGE);
+                }
+                if (hooks.contains(PULL_REQUEST_OPENED_EVENT.getEventId())) {
+                    supportedEvents.add(PULL_REQUEST_OPENED_EVENT);
+                }
+                if (hooks.contains(PULL_REQUEST_MERGED_EVENT.getEventId())) {
+                    supportedEvents.add(PULL_REQUEST_MERGED_EVENT);
+                }
+                if (hooks.contains(PULL_REQUEST_DECLINED_EVENT.getEventId())) {
+                    supportedEvents.add(PULL_REQUEST_DECLINED_EVENT);
+                }
+                if (hooks.contains(PULL_REQUEST_DELETED_EVENT.getEventId())) {
+                    supportedEvents.add(PULL_REQUEST_DELETED_EVENT);
+                }
+
+                if (supportedEvents.isEmpty()) {
                     throw new WebhookNotSupportedException("Remote server does not support the required events.");
                 }
             } catch (BitbucketMissingCapabilityException exception) {
-                return REPO_REF_CHANGE;
+                return Arrays.asList(REPO_REF_CHANGE, PULL_REQUEST_OPENED_EVENT, PULL_REQUEST_MERGED_EVENT,
+                        PULL_REQUEST_DECLINED_EVENT, PULL_REQUEST_DELETED_EVENT);
             }
         }
-        return REPO_REF_CHANGE;
+        return Arrays.asList(REPO_REF_CHANGE, PULL_REQUEST_OPENED_EVENT, PULL_REQUEST_MERGED_EVENT,
+                PULL_REQUEST_DECLINED_EVENT, PULL_REQUEST_DELETED_EVENT);
     }
 
     private BitbucketWebhook process(WebhookRegisterRequest request,
@@ -133,13 +149,19 @@ public class BitbucketWebhookHandler implements WebhookHandler {
                 .collect(toList());
         List<BitbucketWebhook> webhookWithRepoRefChange = ownedHooks
                 .stream()
-                .filter(hook -> hook.getEvents().contains(REPO_REF_CHANGE.getEventId()))
+                .filter(hook -> hook.getEvents().contains(REPO_REF_CHANGE.getEventId()) ||
+                                hook.getEvents().contains(PULL_REQUEST_MERGED_EVENT.getEventId()) ||
+                                hook.getEvents().contains(PULL_REQUEST_DECLINED_EVENT.getEventId()) ||
+                                hook.getEvents().contains(PULL_REQUEST_DELETED_EVENT.getEventId()) ||
+                                hook.getEvents().contains(PULL_REQUEST_OPENED_EVENT.getEventId()))
                 .collect(toList());
 
         if (ownedHooks.size() == 0 ||
-            (webhookWithMirrorSync.size() == 0 && event == MIRROR_SYNCHRONIZED_EVENT) ||
-            (webhookWithRepoRefChange.size() == 0 && event == REPO_REF_CHANGE)) {
-            BitbucketWebhookRequest webhook = createRequest(request, event);
+            (webhookWithMirrorSync.size() == 0 && events.contains(MIRROR_SYNCHRONIZED_EVENT)) ||
+            (webhookWithRepoRefChange.size() == 0 && events.contains(REPO_REF_CHANGE)) &&
+            events.contains(PULL_REQUEST_OPENED_EVENT) && events.contains(PULL_REQUEST_MERGED_EVENT) &&
+            events.contains(PULL_REQUEST_DECLINED_EVENT) && events.contains(PULL_REQUEST_DELETED_EVENT)) {
+            BitbucketWebhookRequest webhook = createRequest(request, events);
             BitbucketWebhook result = webhookClient.registerWebhook(webhook);
             LOGGER.info("New Webhook registered - " + result);
             return result;
@@ -148,7 +170,9 @@ public class BitbucketWebhookHandler implements WebhookHandler {
         BitbucketWebhook mirrorSyncResult =
                 handleExistingWebhook(request, webhookWithMirrorSync, MIRROR_SYNCHRONIZED_EVENT);
 
-        BitbucketWebhook repoRefResult = handleExistingWebhook(request, webhookWithRepoRefChange, REPO_REF_CHANGE);
+        BitbucketWebhook repoRefResult =
+                handleExistingWebhook(request, webhookWithRepoRefChange, Arrays.asList(REPO_REF_CHANGE,
+                        PULL_REQUEST_OPENED_EVENT, PULL_REQUEST_MERGED_EVENT, PULL_REQUEST_DECLINED_EVENT, PULL_REQUEST_DELETED_EVENT));
 
         if (mirrorSyncResult != null && mirrorSyncResult.getEvents().contains(event.getEventId())) {
             return mirrorSyncResult;

@@ -8,6 +8,7 @@ import javax.annotation.CheckForNull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableList;
@@ -52,6 +53,25 @@ public class BitbucketRepository {
         this.state = state;
         this.cloneUrls = cloneUrls;
         this.selfLink = selfLink;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) { return true; }
+        if (o == null || getClass() != o.getClass()) { return false; }
+        BitbucketRepository that = (BitbucketRepository) o;
+        return id == that.id &&
+               Objects.equals(name, that.name) &&
+               Objects.equals(project, that.project) &&
+               Objects.equals(slug, that.slug) &&
+               state == that.state &&
+               Objects.equals(cloneUrls, that.cloneUrls) &&
+               Objects.equals(selfLink, that.selfLink);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, name, project, slug, state, cloneUrls, selfLink);
     }
 
     public int getId() {

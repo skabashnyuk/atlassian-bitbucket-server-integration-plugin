@@ -65,6 +65,29 @@ public class BitbucketWebhookConsumer {
         triggerJob(event, refChangedDetails);
     }
 
+    void process(PullRequestWebhookEvent event) {
+        LOGGER.fine(format("Received pull request event"));
+        // TODO: Can we do eligible refs? For now building everything
+        RefChangedDetails refChangedDetails = new RefChangedDetails(event);
+        if (event.getEventKey().equals(BitbucketWebhookEvent.PULL_REQUEST_OPENED_EVENT.getEventId())) {
+            triggerJob(event, refChangedDetails);
+        } else {
+            //TODO: if it's a closed event: (eventKey) SCM.head.removed, remove from PR store
+            Optional<BitbucketServerConfiguration> server = bitbucketPluginConfiguration.getValidServerList()
+                    .stream()
+                    .filter(serverConfig -> refChangedDetails.getRepository()
+                            .getSelfLink()
+                            .contains(serverConfig.getBaseUrl()))
+                    .findFirst();
+            if (server.isPresent()) {
+                //need to do this for all config
+                pullRequestStore.removePullRequest(server.get().getId(), refChangedDetails.getRepository().getSlug(),
+                        event.getPullRequest().getFromRef().getRepository().getProject().getKey(), event.getPullRequest());
+            }
+            BitbucketSCMHeadPREvent.fireNow(new BitbucketSCMHeadPREvent(SCMEvent.Type.REMOVED, event, event.getPullRequest().getFromRef().getRepository().getSlug()));
+        }
+    }
+
     private static Set<String> eligibleRefs(RefsChangedWebhookEvent event) {
         return event.getChanges()
                 .stream()
