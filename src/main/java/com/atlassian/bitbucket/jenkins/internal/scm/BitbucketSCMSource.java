@@ -8,6 +8,7 @@ import com.atlassian.bitbucket.jenkins.internal.credentials.JenkinsToBitbucketCr
 import com.atlassian.bitbucket.jenkins.internal.model.BitbucketNamedLink;
 import com.atlassian.bitbucket.jenkins.internal.model.BitbucketProject;
 import com.atlassian.bitbucket.jenkins.internal.model.BitbucketRepository;
+import com.atlassian.bitbucket.jenkins.internal.trigger.BitbucketWebhookMultibranchPRTrigger;
 import com.atlassian.bitbucket.jenkins.internal.trigger.BitbucketWebhookMultibranchTrigger;
 import com.atlassian.bitbucket.jenkins.internal.trigger.RetryingWebhookHandler;
 import com.cloudbees.hudson.plugins.folder.computed.ComputedFolder;
@@ -150,6 +151,9 @@ public class BitbucketSCMSource extends SCMSource {
                 getTriggers((ComputedFolder<?>) owner)
                         .forEach(triggerDesc ->
                                 webhookRegistered = triggerDesc.addTrigger(owner, this));
+                getPRTriggers((ComputedFolder<?>) owner)
+                        .forEach(triggerDesc ->
+                                webhookRegistered = triggerDesc.addTrigger(owner, this));
             }
         }
     }
@@ -222,6 +226,14 @@ public class BitbucketSCMSource extends SCMSource {
         return owner.getTriggers().keySet().stream()
                 .filter(BitbucketWebhookMultibranchTrigger.DescriptorImpl.class::isInstance)
                 .map(BitbucketWebhookMultibranchTrigger.DescriptorImpl.class::cast)
+                .collect(Collectors.toList());
+    }
+
+    @VisibleForTesting
+    List<BitbucketWebhookMultibranchPRTrigger.DescriptorImpl> getPRTriggers(ComputedFolder<?> owner) {
+        return owner.getTriggers().keySet().stream()
+                .filter(BitbucketWebhookMultibranchPRTrigger.DescriptorImpl.class::isInstance)
+                .map(BitbucketWebhookMultibranchPRTrigger.DescriptorImpl.class::cast)
                 .collect(Collectors.toList());
     }
 
