@@ -13,21 +13,21 @@ import org.kohsuke.stapler.DataBoundConstructor;
 import javax.inject.Inject;
 import java.util.logging.Logger;
 
-public class BitbucketWebhookMultibranchTrigger extends Trigger<MultiBranchProject<?, ?>> {
+public class BitbucketWebhookMultibranchPRTrigger extends Trigger<MultiBranchProject<?, ?>> {
 
-    private static final Logger LOGGER = Logger.getLogger(BitbucketWebhookMultibranchTrigger.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(BitbucketWebhookMultibranchPRTrigger.class.getName());
 
     @SuppressWarnings("RedundantNoArgConstructor") // Required for Stapler
     @DataBoundConstructor
-    public BitbucketWebhookMultibranchTrigger() {
+    public BitbucketWebhookMultibranchPRTrigger() {
     }
 
     @Override
-    public BitbucketWebhookMultibranchTrigger.DescriptorImpl getDescriptor() {
-        return (BitbucketWebhookMultibranchTrigger.DescriptorImpl) super.getDescriptor();
+    public BitbucketWebhookMultibranchPRTrigger.DescriptorImpl getDescriptor() {
+        return (BitbucketWebhookMultibranchPRTrigger.DescriptorImpl) super.getDescriptor();
     }
 
-    @Symbol("BitbucketWebhookMultibranchTriggerImpl")
+    @Symbol("BbsPRTrigger")
     @Extension
     public static class DescriptorImpl extends TriggerDescriptor {
 
@@ -49,13 +49,13 @@ public class BitbucketWebhookMultibranchTrigger extends Trigger<MultiBranchProje
 
         @Override
         public String getDisplayName() {
-            return Messages.BitbucketWebhookMultibranchTrigger_displayname();
+            return Messages.BitbucketWebhookMultibranchPRTrigger_displayname();
         }
 
         @Override
         public boolean isApplicable(Item item) {
             return item instanceof MultiBranchProject;
         }
-
     }
 }
+
