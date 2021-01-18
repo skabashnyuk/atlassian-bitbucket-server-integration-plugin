@@ -44,7 +44,9 @@ public class BitbucketWebhookEndpoint implements UnprotectedRootAction {
             case MIRROR_SYNCHRONIZED_EVENT:
                 return processMirrorSynchronizedEvent(request);
             case PULL_REQUEST_OPENED_EVENT:
+            case PULL_REQUEST_CLOSED_EVENT: {
                 return processPullRequestEvent(request);
+            }
             default:
                 response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                 return HttpResponses.errorJSON("Event is not supported: " + eventKey);

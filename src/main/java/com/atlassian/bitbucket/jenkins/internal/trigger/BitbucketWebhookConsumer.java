@@ -70,7 +70,19 @@ public class BitbucketWebhookConsumer {
     void process(PullRequestWebhookEvent event) {
         LOGGER.fine(format("Received pull request event"));
         RefChangedDetails refChangedDetails = new RefChangedDetails(event);
-        triggerJob(event, refChangedDetails);
+        Optional<BitbucketServerConfiguration> server = bitbucketPluginConfiguration.getValidServerList()
+                .stream()
+                .filter(serverConfig -> refChangedDetails.getRepository()
+                        .getSelfLink()
+                        .contains(serverConfig.getBaseUrl()))
+                .findFirst();
+        if (BitbucketWebhookEvent.PULL_REQUEST_OPENED_EVENT.getEventIds().contains(event.getEventKey())) {
+            triggerJob(event, refChangedDetails, server);
+        } else if (BitbucketWebhookEvent.PULL_REQUEST_CLOSED_EVENT.getEventIds().contains(event.getEventKey())) {
+            server.ifPresent(configuration ->
+                    pullRequestStore.removePullRequest(configuration.getId(), event.getPullRequest()));
+            BitbucketSCMHeadPREvent.fireNow(new BitbucketSCMHeadPREvent(SCMEvent.Type.REMOVED, event, event.getPullRequest().getFromRef().getRepository().getSlug()));
+        }
     }
 
     private static Set<String> eligibleRefs(RefsChangedWebhookEvent event) {
@@ -192,22 +204,15 @@ public class BitbucketWebhookConsumer {
                 .forEach(triggerDetails -> triggerDetails.getTrigger().trigger(requestBuilder.build()));
     }
 
-    private void triggerJob(PullRequestWebhookEvent event, RefChangedDetails refChangedDetails) {
+    private void triggerJob(PullRequestWebhookEvent event, RefChangedDetails refChangedDetails,
+                            Optional<BitbucketServerConfiguration> serverConfig) {
         try (ACLContext ctx = ACL.as(ACL.SYSTEM)) {
             BitbucketWebhookTriggerRequest.Builder requestBuilder = BitbucketWebhookTriggerRequest.builder();
             event.getActor().ifPresent(requestBuilder::actor);
 
             processJobs(refChangedDetails, requestBuilder);
-            Optional<BitbucketServerConfiguration> server = bitbucketPluginConfiguration.getValidServerList()
-                                                                                        .stream()
-                                                                                        .filter(serverConfig -> refChangedDetails.getRepository()
-                                                                                                                                 .getSelfLink()
-                                                                                                                                 .contains(serverConfig.getBaseUrl()))
-                                                                                        .findFirst();
-            if (server.isPresent()) {
-                //need to do this for all config
-                pullRequestStore.addPullRequest(server.get().getId(), event.getPullRequest());
-            }
+            serverConfig.ifPresent(configuration ->
+                    pullRequestStore.addPullRequest(configuration.getId(), event.getPullRequest()));
             BitbucketSCMHeadPREvent.fireNow(new BitbucketSCMHeadPREvent(SCMEvent.Type.CREATED, event, event.getPullRequest().getToRef().getRepository().getSlug()));
         }
     }
@@ -217,7 +222,7 @@ public class BitbucketWebhookConsumer {
         try (ACLContext ctx = ACL.as(ACL.SYSTEM)) {
             BitbucketWebhookTriggerRequest.Builder requestBuilder = BitbucketWebhookTriggerRequest.builder();
             event.getActor().ifPresent(requestBuilder::actor);
-
+          
             processJobs(refChangedDetails, requestBuilder);
             //fire the head event to indicate to the SCMSources that changes have happened.
             BitbucketSCMHeadEvent.fireNow(new BitbucketSCMHeadEvent(SCMEvent.Type.UPDATED, event, event.getRepository().getSlug()));

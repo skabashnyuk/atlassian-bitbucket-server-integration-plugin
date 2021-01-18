@@ -5,9 +5,15 @@ import com.atlassian.bitbucket.jenkins.internal.scm.BitbucketSCMRepository;
 
 import javax.inject.Singleton;
 import java.util.Objects;
+import java.util.Optional;
+
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
+
+/**
+ * There can be multiple pull requests (with different from or to refs) for the same project/repo/server
+ */
 
 @Singleton
 public class PullRequestStoreImpl implements PullRequestStore {
@@ -29,6 +35,20 @@ public class PullRequestStoreImpl implements PullRequestStore {
     }
 
     @Override
+    public void removePullRequest(String serverId, BitbucketPullRequest pullRequest) {
+        CacheKey cacheKey = new CacheKey(
+                pullRequest.getToRef().getRepository().getProject().getKey(),
+                pullRequest.getToRef().getRepository().getSlug(), serverId);
+
+        Optional.ofNullable(pullRequests.get(cacheKey)).ifPresent(value -> {
+            if (value.contains(pullRequest)) {
+                value.remove(pullRequest);
+            }
+        }
+        );
+    }
+
+    @Override
     public boolean hasOpenPullRequests(String branchName, BitbucketSCMRepository repository) {
 
         PullRequestStoreImpl.CacheKey key =
@@ -41,11 +61,20 @@ public class PullRequestStoreImpl implements PullRequestStore {
     }
 
     @Override
-    public ConcurrentMap<PullRequestStoreImpl.CacheKey, ConcurrentLinkedQueue<BitbucketPullRequest>> getPullRequests() {
-        return pullRequests;
+    public Optional<BitbucketPullRequest> getPullRequest(String key, String slug, String serverId, int pullRequestId) {
+        PullRequestStoreImpl.CacheKey cacheKey =
+                new PullRequestStoreImpl.CacheKey(key, slug, serverId);
+        ConcurrentLinkedQueue<BitbucketPullRequest> pullRequest = pullRequests.get(cacheKey);
+        if (pullRequest == null || pullRequest.isEmpty()) {
+            return Optional.empty();
+        }
+        return pullRequest.stream().filter(pr -> pr.getId() == pullRequestId).findFirst();
     }
 
-    static class CacheKey {
+    /**
+     * key for the store that distinguishes between pull requests within different repos/projects/servers
+     */
+    private static class CacheKey {
 
         private final String projectKey;
         private final String repositorySlug;

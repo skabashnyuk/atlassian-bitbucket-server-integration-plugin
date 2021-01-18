@@ -29,7 +29,7 @@ public class BitbucketWebhookEndpointTest {
     @Test
     public void testRefsChangedWebhook() throws URISyntaxException, IOException {
         given().contentType(ContentType.JSON)
-                .header(X_EVENT_KEY, REPO_REF_CHANGE.getEventId())
+                .header(X_EVENT_KEY, REPO_REF_CHANGE.getEventIds().get(0))
                 .log()
                 .ifValidationFails()
                 .body(
@@ -47,7 +47,7 @@ public class BitbucketWebhookEndpointTest {
     @Test
     public void testMirrorSynchronizedWebhook() throws URISyntaxException, IOException {
         given().contentType(ContentType.JSON)
-                .header(X_EVENT_KEY, MIRROR_SYNCHRONIZED_EVENT.getEventId())
+                .header(X_EVENT_KEY, MIRROR_SYNCHRONIZED_EVENT.getEventIds().get(0))
                 .log()
                 .ifValidationFails()
                 .body(
@@ -63,15 +63,69 @@ public class BitbucketWebhookEndpointTest {
     }
 
     @Test
-    public void testPullRequestWebhook() throws URISyntaxException, IOException {
+    public void testPullRequestOpenedWebhook() throws URISyntaxException, IOException {
         given().contentType(ContentType.JSON)
-                .header(X_EVENT_KEY, PULL_REQUEST_OPENED_EVENT.getEventId())
+                .header(X_EVENT_KEY, PULL_REQUEST_OPENED_EVENT.getEventIds().get(0))
                 .log()
                 .ifValidationFails()
                 .body(
                         IOUtils.toString(
                                 getClass()
-                                        .getResource("/webhook/pull_request_body.json")
+                                        .getResource("/webhook/pull_request_opened_body.json")
+                                        .toURI(),
+                                StandardCharsets.UTF_8))
+                .when()
+                .post(BB_WEBHOOK_URL)
+                .then()
+                .statusCode(HttpServletResponse.SC_OK);
+    }
+
+    @Test
+    public void testPullRequestMergedWebhook() throws URISyntaxException, IOException {
+        given().contentType(ContentType.JSON)
+                .header(X_EVENT_KEY, PULL_REQUEST_CLOSED_EVENT.getEventIds().get(0))
+                .log()
+                .ifValidationFails()
+                .body(
+                        IOUtils.toString(
+                                getClass()
+                                        .getResource("/webhook/pull_request_merged_body.json")
+                                        .toURI(),
+                                StandardCharsets.UTF_8))
+                .when()
+                .post(BB_WEBHOOK_URL)
+                .then()
+                .statusCode(HttpServletResponse.SC_OK);
+    }
+
+    @Test
+    public void testPullRequestDeletedWebhook() throws URISyntaxException, IOException {
+        given().contentType(ContentType.JSON)
+                .header(X_EVENT_KEY, PULL_REQUEST_CLOSED_EVENT.getEventIds().get(2))
+                .log()
+                .ifValidationFails()
+                .body(
+                        IOUtils.toString(
+                                getClass()
+                                        .getResource("/webhook/pull_request_deleted_body.json")
+                                        .toURI(),
+                                StandardCharsets.UTF_8))
+                .when()
+                .post(BB_WEBHOOK_URL)
+                .then()
+                .statusCode(HttpServletResponse.SC_OK);
+    }
+
+    @Test
+    public void testPullRequestDeclinedWebhook() throws URISyntaxException, IOException {
+        given().contentType(ContentType.JSON)
+                .header(X_EVENT_KEY, PULL_REQUEST_CLOSED_EVENT.getEventIds().get(1))
+                .log()
+                .ifValidationFails()
+                .body(
+                        IOUtils.toString(
+                                getClass()
+                                        .getResource("/webhook/pull_request_declined_body.json")
                                         .toURI(),
                                 StandardCharsets.UTF_8))
                 .when()
@@ -83,7 +137,7 @@ public class BitbucketWebhookEndpointTest {
     @Test
     public void testMirrorSynchronizedWebhook65AndLower() throws URISyntaxException, IOException {
         given().contentType(ContentType.JSON)
-                .header(X_EVENT_KEY, MIRROR_SYNCHRONIZED_EVENT.getEventId())
+                .header(X_EVENT_KEY, MIRROR_SYNCHRONIZED_EVENT.getEventIds().get(0))
                 .log()
                 .ifValidationFails()
                 .body(
@@ -126,7 +180,7 @@ public class BitbucketWebhookEndpointTest {
     @Test
     public void testWebhookShouldFailIfInvalidJsonBody() {
         given().contentType(ContentType.JSON)
-                .header(X_EVENT_KEY, REPO_REF_CHANGE.getEventId())
+                .header(X_EVENT_KEY, REPO_REF_CHANGE.getEventIds().get(0))
                 .log()
                 .ifValidationFails()
                 .body(Collections.emptyMap())
@@ -140,7 +194,7 @@ public class BitbucketWebhookEndpointTest {
     @Test
     public void testWebhookTestConnection() {
         given().contentType(ContentType.JSON)
-                .header(X_EVENT_KEY, DIAGNOSTICS_PING_EVENT.getEventId())
+                .header(X_EVENT_KEY, DIAGNOSTICS_PING_EVENT.getEventIds().get(0))
                 .log()
                 .ifValidationFails()
                 .body(Collections.emptyMap())
