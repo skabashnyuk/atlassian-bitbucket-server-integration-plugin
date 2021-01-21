@@ -1,29 +1,38 @@
 package it.com.atlassian.bitbucket.jenkins.internal;
 
+import com.google.common.collect.ImmutableMap;
 import io.restassured.RestAssured;
+import io.restassured.filter.log.LogDetail;
 import io.restassured.path.json.JsonPath;
 import io.restassured.response.Response;
+import it.com.atlassian.bitbucket.jenkins.internal.applink.oauth.client.JenkinsApplinksClient;
+import it.com.atlassian.bitbucket.jenkins.internal.applink.oauth.model.OAuthConsumer;
 import it.com.atlassian.bitbucket.jenkins.internal.pageobjects.*;
+import it.com.atlassian.bitbucket.jenkins.internal.test.acceptance.ProjectBasedMatrixSecurityHelper;
 import it.com.atlassian.bitbucket.jenkins.internal.util.BitbucketUtils.*;
+import net.sf.json.JSONArray;
+import net.sf.json.JSONObject;
+import org.apache.http.client.utils.URIBuilder;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.hamcrest.Description;
 import org.hamcrest.TypeSafeDiagnosingMatcher;
+import org.jenkinsci.test.acceptance.controller.JenkinsController;
 import org.jenkinsci.test.acceptance.junit.AbstractJUnitTest;
 import org.jenkinsci.test.acceptance.junit.WithPlugins;
 import org.jenkinsci.test.acceptance.plugins.credentials.CredentialsPage;
 import org.jenkinsci.test.acceptance.plugins.credentials.UserPwdCredential;
 import org.jenkinsci.test.acceptance.plugins.ssh_credentials.SshPrivateKeyCredential;
-import org.jenkinsci.test.acceptance.po.Build;
-import org.jenkinsci.test.acceptance.po.FreeStyleJob;
-import org.jenkinsci.test.acceptance.po.JenkinsConfig;
-import org.jenkinsci.test.acceptance.po.WorkflowJob;
+import org.jenkinsci.test.acceptance.po.*;
 import org.junit.*;
 import org.junit.rules.TemporaryFolder;
 
+import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.net.URLEncoder;
 import java.util.List;
 import java.util.Map;
@@ -40,9 +49,13 @@ import static java.util.UUID.randomUUID;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.jenkinsci.test.acceptance.plugins.credentials.ManagedCredentials.DEFAULT_DOMAIN;
+import static org.jenkinsci.test.acceptance.plugins.matrix_auth.MatrixRow.*;
 import static org.jenkinsci.test.acceptance.po.Build.Result.SUCCESS;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.springframework.util.StringUtils.trimTrailingCharacter;
 
-@WithPlugins({"mailer", "atlassian-bitbucket-server-integration"})
+@WithPlugins({"atlassian-bitbucket-server-integration", "mailer", "matrix-auth"})
 public class SmokeTest extends AbstractJUnitTest {
 
     private static final long BUILD_START_TIMEOUT_MINUTES = 1L;
@@ -50,24 +63,31 @@ public class SmokeTest extends AbstractJUnitTest {
     private static final String MASTER_BRANCH_NAME = "master";
     private static final String REPOSITORY_CHECKOUT_DIR_NAME = "repositoryCheckout";
 
+    private URL applinkUrl;
+    private String bbsAdminCredsId;
+    private PersonalAccessToken bbsPersonalAccessToken;
+    private BitbucketSshKeyPair bbsSshCreds;
+    @Inject
+    private JenkinsController controller;
+    private BitbucketRepository forkRepo;
+    private Job job;
+    @Inject
+    private ProjectBasedMatrixSecurityHelper security;
+    private String serverId;
     @Rule
     public final TemporaryFolder tempFolder = new TemporaryFolder();
-
-    private String bbsAdminCredsId;
-    private BitbucketSshKeyPair bbsSshCreds;
-    private PersonalToken bbsPersonalToken;
-    private BitbucketRepository forkRepo;
-    private String serverId;
+    private User user;
 
     @Before
     public void setUp() throws IOException {
-        // BB Access Token
-        bbsPersonalToken = createPersonalToken(PROJECT_READ_PERMISSION, REPO_ADMIN_PERMISSION);
+
+        // BBS Personal Access Token
+        bbsPersonalAccessToken = createPersonalAccessToken(PROJECT_READ_PERMISSION, REPO_ADMIN_PERMISSION);
         CredentialsPage credentials = new CredentialsPage(jenkins, DEFAULT_DOMAIN);
         credentials.open();
         BitbucketTokenCredentials bbsTokenCreds = credentials.add(BitbucketTokenCredentials.class);
-        bbsTokenCreds.token.set(bbsPersonalToken.getSecret());
-        bbsTokenCreds.description.sendKeys(bbsPersonalToken.getId());
+        bbsTokenCreds.token.set(bbsPersonalAccessToken.getSecret());
+        bbsTokenCreds.description.sendKeys(bbsPersonalAccessToken.getId());
         credentials.create();
 
         // BB Admin user/password
@@ -92,7 +112,7 @@ public class SmokeTest extends AbstractJUnitTest {
         jenkinsConfig.configure();
         serverId = "bbs-" + randomUUID();
         new BitbucketPluginConfigArea(jenkinsConfig)
-                .addBitbucketServerConfig(serverId, BITBUCKET_BASE_URL, bbsPersonalToken.getId());
+                .addBitbucketServerConfig(serverId, BITBUCKET_BASE_URL, bbsPersonalAccessToken.getId());
         jenkinsConfig.save();
 
         // Fork repo
@@ -103,12 +123,77 @@ public class SmokeTest extends AbstractJUnitTest {
     public void tearDown() {
         // There's a limit of 100 personal access tokens per user in Bitbucket Server, hence we clean up the access
         // tokens after each test to ensure repeated test runs against the same Bitbucket instance does not fail.
-        if (bbsPersonalToken != null) {
-            deletePersonalToken(bbsPersonalToken.getId());
+        if (bbsPersonalAccessToken != null) {
+            deletePersonalAccessToken(bbsPersonalAccessToken.getId());
         }
         if (bbsSshCreds != null) {
             deleteSshPublicKey(bbsSshCreds.getId());
         }
+        if (applinkUrl != null) {
+            deleteApplicationLink(applinkUrl);
+            applinkUrl = null;
+        }
+        if (forkRepo != null) {
+            deleteRepoFork(forkRepo.getSlug());
+            forkRepo = null;
+        }
+    }
+
+    @Test
+    public void testRunBuildActionWtihFreestlyeJob() throws Exception {
+        // Log into Bitbucket
+        LoginPage loginPage = new LoginPage(jenkins, BITBUCKET_BASE_URL);
+        loginPage.load().login(BITBUCKET_ADMIN_USERNAME, BITBUCKET_ADMIN_PASSWORD);
+
+        JenkinsApplinksClient applinksClient = new JenkinsApplinksClient(getBaseUrl());
+        OAuthConsumer oAuthConsumer = applinksClient.createOAuthConsumer();
+
+        user = security.newUser();
+        security.addGlobalPermissions(ImmutableMap.of(
+                user, perms -> perms.on(OVERALL_READ)
+        ));
+
+        // Configure job and give user permissions to run a build
+        job = createJobWithBitbucketScm(jenkins, bbsAdminCredsId, bbsSshCreds, serverId, forkRepo);
+        security.addProjectPermissions(job, ImmutableMap.of(
+                user, perms -> perms.on(ITEM_BUILD, ITEM_READ)
+        ));
+
+        // Applink Bitbucket Server and Jenkins over REST
+        applinkUrl = createBitbucketApplicationLink(jenkins.url.toString(), oAuthConsumer);
+
+        // Create a build and POST it to Bitbucket Server
+        job.scheduleBuild();
+
+        // Visit the builds page in Bitbucket Server and authorize against Jenkins as user
+        String commitId = "0a943a29376f2336b78312d99e65da17048951db";
+        fetchBuildStatusesFromBitbucket(commitId).forEach(status ->
+                assertThat(status, successfulBuildWithKey(getBuildKey(job))));
+
+        // Assert that we need to authorize
+        Response getBuildOperationsResponse = getBuildOperations(commitId);
+        assertTrue(getBuildOperationsResponse.jsonPath().getBoolean("isAuthorizationRequired"));
+        assertEquals(0, getBuildOperationsResponse.jsonPath().getList("actions").size());
+
+        // perform oauth dance
+        String buildServerId = trimTrailingCharacter(jenkins.url("").toString(), '/');
+        String redirectUrl = "/dashboard";
+        URL bitbucketAuthorizeUrl = new URIBuilder(BITBUCKET_BASE_URL + "/rest/ui/latest/build-server/authorize")
+                .addParameter("callbackUrl", redirectUrl)
+                .addParameter("buildServerId", buildServerId)
+                .build()
+                .toURL();
+        BitbucketAuthenticatedOAuthAuthorizeTokenPage authorizePage = new BitbucketAuthenticatedOAuthAuthorizeTokenPage(jenkins, bitbucketAuthorizeUrl);
+        authorizePage.authorize(BITBUCKET_BASE_URL + redirectUrl);
+
+        job.visit("");
+        int previousBuildCount = job.getLastBuild().getNumber();
+
+        // Run build through Bitbucket
+        performAction(commitId);
+        waitFor()
+            .withTimeout(ofMinutes(BUILD_START_TIMEOUT_MINUTES))
+            .until(ignored -> previousBuildCount + 1 == job.getLastBuild().getNumber());
     }
 
     @Test
@@ -139,7 +224,7 @@ public class SmokeTest extends AbstractJUnitTest {
 
         // Verify BB has received build status
         fetchBuildStatusesFromBitbucket(commit.getId().getName()).forEach(status ->
-                assertThat(status, successfulBuildWithKey(freeStyleJob.getLastBuild().job.name)));
+                assertThat(status, successfulBuildWithKey(getBuildKey(freeStyleJob))));
     }
 
     @Test
@@ -317,6 +402,27 @@ public class SmokeTest extends AbstractJUnitTest {
         runFullBuildFlow(workflowJob);
     }
 
+    private static String getBuildKey(Job job) {
+        return job.getLastBuild().job.name;
+    }
+
+    private static String getInternalCommitUrl(BitbucketRepository repository, String commitId) {
+        return getInternalRepositoryUrl(repository) + "/commits/" + commitId;
+    }
+
+    private static String getInternalRepositoryUrl(BitbucketRepository repository) {
+        return BITBUCKET_BASE_URL + "/rest/ui/latest/projects/" + repository.getProject().getKey() + "/repos/" +
+               repository.getSlug();
+    }
+
+    private String getRequestTokenFromEncodedUrl(String url) throws URISyntaxException {
+        return new URIBuilder(url)
+                .getQueryParams()
+                .stream()
+                .filter(queryParam -> queryParam.getName().equals("oauth_token"))
+                .findFirst().get().getValue();
+    }
+
     private void runFullBuildFlow(BitbucketScmWorkflowJob workflowJob) throws IOException, GitAPIException {
         // Clone (fork) repo and push new file
         File checkoutDir = tempFolder.newFolder(REPOSITORY_CHECKOUT_DIR_NAME);
@@ -333,7 +439,36 @@ public class SmokeTest extends AbstractJUnitTest {
 
         // Verify BB has received build status
         fetchBuildStatusesFromBitbucket(commit.getId().getName()).forEach(status ->
-                assertThat(status, successfulBuildWithKey(workflowJob.getLastBuild().job.name)));
+                assertThat(status, successfulBuildWithKey(getBuildKey(workflowJob))));
+    }
+
+    private Response getBuildOperations(String commitId) {
+        return RestAssured
+                .given()
+                .log().ifValidationFails(LogDetail.ALL)
+                .auth().preemptive().basic(BITBUCKET_ADMIN_USERNAME, BITBUCKET_ADMIN_PASSWORD)
+                .header("Accept", JSON.getAcceptHeader())
+                .expect()
+                .statusCode(200)
+                .when()
+                .get(getInternalCommitUrl(forkRepo, commitId) + "/build-operations?key=" + getBuildKey(job));
+    }
+
+    private Response performAction(String commitId) {
+        JSONObject body = new JSONObject();
+        body.put("id", "ScheduleBuildAction");
+        body.put("key", getBuildKey(job));
+        return RestAssured
+                .given()
+                .log().ifValidationFails(LogDetail.ALL)
+                .auth().preemptive().basic(BITBUCKET_ADMIN_USERNAME, BITBUCKET_ADMIN_PASSWORD)
+                .header("Accept", JSON.getAcceptHeader())
+                .contentType("application/json")
+                .body(body)
+                .expect()
+                .statusCode(200)
+                .when()
+                .post(getInternalCommitUrl(forkRepo, commitId) + "/build-operations");
     }
 
     private List<Map<String, ?>> fetchBuildStatusesFromBitbucket(String commitId) {
@@ -346,12 +481,12 @@ public class SmokeTest extends AbstractJUnitTest {
                 .until(ignored -> {
                     Response response = RestAssured
                             .given()
-                                .log()
-                                .ifValidationFails()
-                                .auth().preemptive().basic(BITBUCKET_ADMIN_USERNAME, BITBUCKET_ADMIN_PASSWORD)
-                                .contentType(JSON)
+                            .log()
+                            .ifValidationFails()
+                            .auth().preemptive().basic(BITBUCKET_ADMIN_USERNAME, BITBUCKET_ADMIN_PASSWORD)
+                            .contentType(JSON)
                             .when()
-                                .get(BITBUCKET_BASE_URL + "/rest/build-status/latest/commits/" + commitId);
+                            .get(BITBUCKET_BASE_URL + "/rest/build-status/latest/commits/" + commitId);
                     if (response.getStatusCode() != 200) {
                         return null;
                     }
@@ -379,6 +514,10 @@ public class SmokeTest extends AbstractJUnitTest {
 
     private static BuildStatusMatcher successfulBuildWithKey(String key) {
         return new BuildStatusMatcher(key, "SUCCESSFUL");
+    }
+
+    private String getBaseUrl() {
+        return controller.getUrl().toString();
     }
 
     private static final class BuildStatusMatcher extends TypeSafeDiagnosingMatcher<Map<String, ?>> {

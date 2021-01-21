@@ -222,7 +222,7 @@ public class BitbucketWebhookConsumer {
         try (ACLContext ctx = ACL.as(ACL.SYSTEM)) {
             BitbucketWebhookTriggerRequest.Builder requestBuilder = BitbucketWebhookTriggerRequest.builder();
             event.getActor().ifPresent(requestBuilder::actor);
-          
+
             processJobs(refChangedDetails, requestBuilder);
             //fire the head event to indicate to the SCMSources that changes have happened.
             BitbucketSCMHeadEvent.fireNow(new BitbucketSCMHeadEvent(SCMEvent.Type.UPDATED, event, event.getRepository().getSlug()));
@@ -302,7 +302,7 @@ public class BitbucketWebhookConsumer {
         }
     }
 
-    private static final class RefChangedDetails {
+    static final class RefChangedDetails {
 
         private final Set<String> cloneLinks;
         private final boolean isMirrorSyncEvent;
