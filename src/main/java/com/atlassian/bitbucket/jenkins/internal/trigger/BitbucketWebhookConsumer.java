@@ -268,7 +268,7 @@ public class BitbucketWebhookConsumer {
         }
     }
 
-    private static class BitbucketSCMHeadEvent extends SCMHeadEvent<RefsChangedWebhookEvent> {
+    static class BitbucketSCMHeadEvent extends SCMHeadEvent<RefsChangedWebhookEvent> {
 
         public BitbucketSCMHeadEvent(Type type, RefsChangedWebhookEvent payload, String origin) {
             super(type, payload, origin);
