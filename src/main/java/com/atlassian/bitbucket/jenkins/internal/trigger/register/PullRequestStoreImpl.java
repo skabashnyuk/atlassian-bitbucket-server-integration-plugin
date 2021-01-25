@@ -10,6 +10,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
+import java.util.stream.Stream;
 
 /**
  * There can be multiple pull requests (with different from or to refs) for the same project/repo/server
@@ -69,6 +70,17 @@ public class PullRequestStoreImpl implements PullRequestStore {
             return Optional.empty();
         }
         return pullRequest.stream().filter(pr -> pr.getId() == pullRequestId).findFirst();
+    }
+
+    @Override
+    public void refreshStore(String key, String slug, String serverId, Stream<BitbucketPullRequest> bbsPullRequests) {
+        PullRequestStoreImpl.CacheKey cacheKey =
+                new PullRequestStoreImpl.CacheKey(key, slug, serverId);
+        ConcurrentLinkedQueue<BitbucketPullRequest> pullRequest = pullRequests.get(cacheKey);
+        if (pullRequest != null) {
+            pullRequest.clear();
+        }
+        bbsPullRequests.forEach(bbsPullRequest -> addPullRequest(serverId, bbsPullRequest));
     }
 
     /**

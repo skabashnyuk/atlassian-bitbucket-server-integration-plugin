@@ -5,6 +5,7 @@ import com.atlassian.bitbucket.jenkins.internal.scm.BitbucketSCMRepository;
 import com.google.inject.ImplementedBy;
 
 import java.util.Optional;
+import java.util.stream.Stream;
 
 /**
  * local copy of all open pull requests to support selectBranchTrait when we only want to build/display branches with
@@ -36,4 +37,13 @@ public interface PullRequestStore {
      * @return desired pull request else Optional.empty()
      */
     Optional<BitbucketPullRequest> getPullRequest(String key, String slug, String serverId, int pullRequestId);
+
+    /**
+     * Given a list of pull requests retrieved from a call to bbs, update and sync up our pullRequestStore.
+     * @param key
+     * @param slug
+     * @param serverId
+     * @param bbsPullRequests
+     */
+    void refreshStore(String key, String slug, String serverId, Stream<BitbucketPullRequest> bbsPullRequests);
 }
