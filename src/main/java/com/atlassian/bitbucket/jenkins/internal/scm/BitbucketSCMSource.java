@@ -180,6 +180,10 @@ public class BitbucketSCMSource extends SCMSource {
         return repository;
     }
 
+    public CustomGitSCMSource getGitSCMSource() {
+        return gitSCMSource;
+    }
+
     @CheckForNull
     public String getCredentialsId() {
         return getBitbucketSCMRepository().getCredentialsId();
@@ -251,8 +255,14 @@ public class BitbucketSCMSource extends SCMSource {
     protected void retrieve(@CheckForNull SCMSourceCriteria criteria, SCMHeadObserver observer,
                             @CheckForNull SCMHeadEvent<?> event,
                             TaskListener listener) throws IOException, InterruptedException {
+        handleRefreshingPRStore(event, listener);
+        gitSCMSource.accessibleRetrieve(criteria, observer, event, listener);
+    }
+
+    protected void handleRefreshingPRStore(@CheckForNull SCMHeadEvent<?> event,
+                                         TaskListener listener) {
         if (event == null) {
-            if (gitSCMSource.getTraits().stream().anyMatch(trait -> trait.getClass() == SelectBranchTrait.class)) {
+            if (getGitSCMSource().getTraits().stream().anyMatch(trait -> trait.getClass() == SelectBranchTrait.class)) {
                 //on manual scans & creation of jenkins jobs, we call out to bbs and fetch a list of open prs and
                 // sync up our local pullRequestStore
                 DescriptorImpl descriptor = (DescriptorImpl) getDescriptor();
@@ -270,7 +280,6 @@ public class BitbucketSCMSource extends SCMSource {
                 }
             }
         }
-        gitSCMSource.accessibleRetrieve(criteria, observer, event, listener);
     }
 
     private Stream<BitbucketPullRequest> fetchOpenPullRequestsFromBbsInstance(DescriptorImpl descriptor) {
