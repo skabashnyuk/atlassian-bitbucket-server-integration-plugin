@@ -4,8 +4,6 @@ import com.atlassian.bitbucket.jenkins.internal.client.exception.*;
 import com.atlassian.bitbucket.jenkins.internal.model.BitbucketPullRequest;
 import com.atlassian.bitbucket.jenkins.internal.model.BitbucketRepository;
 
-import java.util.stream.Stream;
-
 /**
  * Repository client, used to interact with a remote repository for all operations except cloning
  * source code.
@@ -41,5 +39,5 @@ public interface BitbucketRepositoryClient {
      *
      * @return a stream of all (potentially spanning multiple pages) open pull requests
      */
-    Stream<BitbucketPullRequest> getOpenPullRequests();
+    StreamController<BitbucketPullRequest> getOpenPullRequests();
 }

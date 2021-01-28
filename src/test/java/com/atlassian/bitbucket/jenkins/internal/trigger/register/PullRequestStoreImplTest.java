@@ -5,12 +5,9 @@ import com.atlassian.bitbucket.jenkins.internal.scm.BitbucketSCMRepository;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.junit.MockitoJUnitRunner;
-
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
 import java.util.Optional;
 
+import static org.hamcrest.Matchers.samePropertyValuesAs;
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
@@ -28,7 +25,7 @@ public class PullRequestStoreImplTest {
         BitbucketRepository bitbucketRepository = mock(BitbucketRepository.class);
         BitbucketProject bitbucketProject = mock(BitbucketProject.class);
         BitbucketPullRequest bitbucketPullRequest = new BitbucketPullRequest(id,
-                state, bitbucketPullRequestRef, bitbucketPullRequestRef);
+                state, bitbucketPullRequestRef, bitbucketPullRequestRef, System.currentTimeMillis());
 
         doReturn(branchName).when(bitbucketPullRequestRef).getDisplayId();
         doReturn(bitbucketRepository).when(bitbucketPullRequestRef).getRepository();
@@ -39,12 +36,29 @@ public class PullRequestStoreImplTest {
         return bitbucketPullRequest;
     }
 
+    private MinimalPullRequest setupMinimalPR(String newKey, BitbucketPullState state, int id) {
+        BitbucketPullRequestRef bitbucketPullRequestRef = mock(BitbucketPullRequestRef.class);
+        BitbucketRepository bitbucketRepository = mock(BitbucketRepository.class);
+        BitbucketProject bitbucketProject = mock(BitbucketProject.class);
+        MinimalPullRequest minimalPullRequest = new MinimalPullRequest(id,
+                state, bitbucketPullRequestRef.getDisplayId(), System.currentTimeMillis());
+
+        doReturn(branchName).when(bitbucketPullRequestRef).getDisplayId();
+        doReturn(bitbucketRepository).when(bitbucketPullRequestRef).getRepository();
+        doReturn(bitbucketProject).when(bitbucketRepository).getProject();
+        doReturn(slug).when(bitbucketRepository).getSlug();
+        doReturn(newKey).when(bitbucketProject).getKey();
+
+        return minimalPullRequest;
+    }
+
     @Test
     public void testAddPRWithNewKey() {
         BitbucketPullRequest bitbucketPullRequest = setupPR(key, BitbucketPullState.OPEN, 1);
+        MinimalPullRequest minimalPullRequest = setupMinimalPR(key, BitbucketPullState.OPEN, 1);
         pullRequestStore.addPullRequest(serverId, bitbucketPullRequest);
-
-        assertEquals(pullRequestStore.getPullRequest(key, slug, serverId, bitbucketPullRequest.getId()), Optional.of(bitbucketPullRequest));
+        assertThat(pullRequestStore.getPullRequest(key, slug, serverId,
+                bitbucketPullRequest.getId()), samePropertyValuesAs(Optional.of(minimalPullRequest)));
     }
 
     @Test
@@ -53,10 +67,11 @@ public class PullRequestStoreImplTest {
         pullRequestStore.addPullRequest(serverId, bitbucketPullRequest);
 
         BitbucketPullRequest anotherBitbucketPullRequest = setupPR(key, BitbucketPullState.OPEN, 2);
+        MinimalPullRequest minimalPullRequest = setupMinimalPR(key, BitbucketPullState.OPEN, 2);
         pullRequestStore.addPullRequest(serverId, anotherBitbucketPullRequest);
 
-        assertEquals(pullRequestStore.getPullRequest(key, slug, serverId,
-                anotherBitbucketPullRequest.getId()), Optional.of(anotherBitbucketPullRequest));
+        assertThat(pullRequestStore.getPullRequest(key, slug, serverId,
+                anotherBitbucketPullRequest.getId()), samePropertyValuesAs(Optional.of(minimalPullRequest)));
     }
 
     @Test
@@ -66,11 +81,12 @@ public class PullRequestStoreImplTest {
 
         String newKey = "different-key";
         BitbucketPullRequest anotherBitbucketPullRequest = setupPR(newKey, BitbucketPullState.OPEN, 1);
+        MinimalPullRequest minimalPullRequest = setupMinimalPR(newKey, BitbucketPullState.OPEN, 1);
 
         pullRequestStore.addPullRequest(serverId, anotherBitbucketPullRequest);
 
-        assertEquals(pullRequestStore.getPullRequest(newKey, slug, serverId,
-                anotherBitbucketPullRequest.getId()), Optional.of(anotherBitbucketPullRequest));
+        assertThat(pullRequestStore.getPullRequest(key, slug, serverId,
+                anotherBitbucketPullRequest.getId()), samePropertyValuesAs(Optional.of(minimalPullRequest)));
     }
 
     //testAddPrWithExistingCacheKeyAndPR isn't applicable as this isn't allowed in Bitbucket.
@@ -80,16 +96,20 @@ public class PullRequestStoreImplTest {
     @Test
     public void testAddPRThenDeleteThenAddAgain() {
         BitbucketPullRequest pullRequest = setupPR(key, BitbucketPullState.OPEN, 1);
+        BitbucketPullRequest removePullRequest = setupPR(key, BitbucketPullState.DELETED, 1);
+        MinimalPullRequest minimalDeletedPullRequest = setupMinimalPR(key, BitbucketPullState.DELETED, 1);
+        MinimalPullRequest minimalPullRequest = setupMinimalPR(key, BitbucketPullState.OPEN, 1);
 
         pullRequestStore.addPullRequest(serverId, pullRequest);
-        pullRequestStore.removePullRequest(serverId, pullRequest);
+        pullRequestStore.removePullRequest(serverId, removePullRequest);
 
-        assertEquals(pullRequestStore.getPullRequest(key, slug, serverId, pullRequest.getId()), Optional.empty());
+        assertThat(pullRequestStore.getPullRequest(key, slug, serverId,
+                pullRequest.getId()), samePropertyValuesAs(Optional.of(minimalDeletedPullRequest)));
 
         pullRequestStore.addPullRequest(serverId, pullRequest);
 
-        assertEquals(pullRequestStore.getPullRequest(key, slug, serverId,
-                pullRequest.getId()), Optional.of(pullRequest));
+        assertThat(pullRequestStore.getPullRequest(key, slug, serverId,
+                pullRequest.getId()), samePropertyValuesAs(Optional.of(minimalPullRequest)));
     }
 
     @Test
@@ -137,14 +157,19 @@ public class PullRequestStoreImplTest {
     @Test
     public void testRemovePRWithNonExistingKey() {
         BitbucketPullRequest bitbucketPullRequest = setupPR(key, BitbucketPullState.OPEN, 1);
+        MinimalPullRequest minimalPullRequest = setupMinimalPR(key, BitbucketPullState.OPEN, 1);
+
         pullRequestStore.addPullRequest(serverId, bitbucketPullRequest);
         String newKey = "different-key";
 
         BitbucketPullRequest anotherBitbucketPullRequest = setupPR(newKey, BitbucketPullState.DELETED, 1);
+
         pullRequestStore.removePullRequest(serverId, anotherBitbucketPullRequest);
 
-        assertEquals(pullRequestStore.getPullRequest(newKey, slug, serverId, anotherBitbucketPullRequest.getId()), Optional.empty());
-        assertEquals(pullRequestStore.getPullRequest(key, slug, serverId, bitbucketPullRequest.getId()), Optional.of(bitbucketPullRequest));
+        assertThat(pullRequestStore.getPullRequest(newKey, slug, serverId,
+                anotherBitbucketPullRequest.getId()), samePropertyValuesAs(Optional.empty()));
+        assertThat(pullRequestStore.getPullRequest(key, slug, serverId,
+                bitbucketPullRequest.getId()), samePropertyValuesAs(Optional.of(minimalPullRequest)));
     }
 
     @Test
@@ -152,7 +177,6 @@ public class PullRequestStoreImplTest {
         BitbucketPullRequest bitbucketPullRequest = setupPR(key, BitbucketPullState.OPEN, 1);
         pullRequestStore.addPullRequest(serverId, bitbucketPullRequest);
 
-        PullRequestStore oldStore = pullRequestStore;
         BitbucketPullRequest anotherBitbucketPullRequest = setupPR(key, BitbucketPullState.DELETED, 2);
 
         pullRequestStore.removePullRequest(serverId, anotherBitbucketPullRequest);
@@ -193,9 +217,9 @@ public class PullRequestStoreImplTest {
         BitbucketRepository bitbucketRepository = mock(BitbucketRepository.class);
         BitbucketProject bitbucketProject = mock(BitbucketProject.class);
         BitbucketPullRequest bitbucketPullRequest = new BitbucketPullRequest(1,
-                BitbucketPullState.OPEN, bitbucketPullRequestRef, bitbucketPullRequestRef);
+                BitbucketPullState.OPEN, bitbucketPullRequestRef, bitbucketPullRequestRef, System.currentTimeMillis());
         BitbucketPullRequest deletepullRequest = new BitbucketPullRequest(1,
-                BitbucketPullState.DELETED, bitbucketPullRequestRef, bitbucketPullRequestRef);
+                BitbucketPullState.DELETED, bitbucketPullRequestRef, bitbucketPullRequestRef, System.currentTimeMillis());
         doReturn(bitbucketRepository).when(bitbucketPullRequestRef).getRepository();
         doReturn(bitbucketProject).when(bitbucketRepository).getProject();
         doReturn(slug).when(bitbucketRepository).getSlug();
@@ -207,6 +231,7 @@ public class PullRequestStoreImplTest {
     }
 
     //refresh store
+    /*
     @Test
     public void testRestoreStoreWithNonExistingKey() {
         //store is currently empty
@@ -295,5 +320,5 @@ public class PullRequestStoreImplTest {
         assertEquals(pullRequestStore.getPullRequest(key, slug, serverId, pullRequest1.getId()), Optional.of(pullRequest1));
         assertEquals(pullRequestStore.getPullRequest(key, slug, serverId, pullRequest2.getId()), Optional.of(pullRequest2));
         assertEquals(pullRequestStore.getPullRequest(key, slug, serverId, pullRequest3.getId()), Optional.of(pullRequest3));
-    }
+    }*/
 }
